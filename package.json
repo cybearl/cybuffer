@@ -1,0 +1,72 @@
+{
+    "name": "@cybearl/cache",
+    "productName": "Cache",
+    "version": "2024.11.6",
+    "description": "An extension of the Uint8Array class that implements cryptography-related operations.",
+    "author": "Cybearl <[email protected]> (https://www.cybearl.com/)",
+    "license": "MIT",
+    "private": false,
+    "keywords": [
+        "cybearl",
+        "cache",
+        "Uint8Array",
+        "TypedArray",
+        "utilities"
+    ],
+    "homepage": "https://github.com/cybearl/cache",
+    "repository": "https://github.com/cybearl/cache",
+    "bugs": "https://github.com/cybearl/cache/issues",
+    "publishConfig": {
+        "registry": "https://npm.pkg.github.com/@cybearl"
+    },
+    "main": "index.js",
+    "module": "index.mjs",
+    "types": "index.d.ts",
+    "engines": {
+        "node": ">=20"
+    },
+    "files": [
+        "*"
+    ],
+    "exports": {
+        ".": {
+            "import": "./index.mjs",
+            "require": "./index.js"
+        }
+    },
+    "scripts": {
+        "v-bump": "yarn version --patch",
+        "build": "tsup",
+        "watch": "tsup --watch",
+        "lint": "biome lint .",
+        "lint:fix": "biome lint . --apply",
+        "format": "biome format .",
+        "format:fix": "biome format --write .",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "dedent-js": "^1.0.1",
+        "loglevel": "^1.9.2"
+    },
+    "peerDependencies": {
+        "typescript": ">=5.4.0"
+    },
+    "peerDependenciesMeta": {
+        "typescript": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^1.9.4",
+        "@types/copyfiles": "^2.4.4",
+        "@types/node": "^22.10.2",
+        "@types/valid-url": "^1.0.7",
+        "concurrently": "^9.1.1",
+        "copyfiles": "^2.4.1",
+        "cross-env": "^7.0.3",
+        "tsconfig-paths-webpack-plugin": "^4.2.0",
+        "tsup": "^8.3.5",
+        "typescript": "^5.7.2",
+        "webpack": "^5.97.1"
+    }
+}
