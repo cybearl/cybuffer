@@ -7,7 +7,12 @@ import os from "node:os"
 export type Bit = 0 | 1
 
 /**
- * Cache is a helper class that extends the Uint8Array class with additional methods
+ * A small function to format errors.
+ */
+const formatError = (name: string, message: string): string => `[CyBuffer - ${name}] ${message}`
+
+/**
+ * `CyBuffer` is a helper class that extends the Uint8Array class with additional methods
  * similar to the Buffer class in Node.js, while also providing multiple utility methods
  * linked to advanced cryptography and binary data manipulation.
  *
@@ -15,14 +20,14 @@ export type Bit = 0 | 1
  * - As TypedArrays are based on the platform's endianness, the `littleEndian` parameter
  * is potentially inverted before being used, allowing support for both Little Endian and Big Endian systems.
  */
-export default class Cache extends Uint8Array {
+export default class CyBuffer extends Uint8Array {
 	/**
-	 * The initial offset of the cache compared to the buffer's `byteOffset`.
+	 * The initial offset of the buffer compared to the buffer's `byteOffset`.
 	 */
 	private _offset = 0
 
 	/**
-	 * The length of the cache (in bytes).
+	 * The length of the buffer (in bytes).
 	 */
 	private _length: number
 
@@ -32,18 +37,13 @@ export default class Cache extends Uint8Array {
 	readonly platformEndianness = os.endianness()
 
 	/**
-	 * Whether the buffer is shared or not.
-	 */
-	readonly isBufferShared = this.buffer instanceof ArrayBuffer
-
-	/**
-	 * The number of bytes per element in the cache (always 1).
+	 * The number of bytes per element in the buffer (always 1).
 	 */
 	readonly BYTES_PER_ELEMENT = 1
 
 	/**
-	 * Creates a new Cache object based on a length or an input (supported by the Uint8Array constructor).
-	 * @param length The length of the cache to create.
+	 * Creates a new `CyBuffer` instance based on a length or an input (supported by the Uint8Array constructor).
+	 * @param length The length of the buffer to create.
 	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
 	 * @param options The options to use (optional).
 	 * - `buffer`: The buffer to feed to the Uint8Array constructor.
@@ -58,8 +58,9 @@ export default class Cache extends Uint8Array {
 			length?: number
 		},
 	) {
-		if (length < 0) throw new RangeError(`[Cache - constructor] Invalid cache length: '${length}'.`)
-		if (!Number.isInteger(length)) throw new TypeError(`[Cache - constructor] Invalid cache length: '${length}'.`)
+		if (length < 0) throw new RangeError(formatError("constructor", `Invalid buffer length: '${length}'.`))
+		if (!Number.isInteger(length))
+			throw new TypeError(formatError("constructor", `Invalid buffer length: '${length}'.`))
 
 		if (options) super(options.buffer, options?.offset, options?.length)
 		else super(length)
@@ -75,21 +76,21 @@ export default class Cache extends Uint8Array {
 	 */
 
 	/**
-	 * The ArrayBuffer instance referenced by the cache.
+	 * The ArrayBuffer instance referenced by the buffer.
 	 */
-	get buffer(): ArrayBuffer {
+	get arrayBuffer(): ArrayBuffer {
 		return super.buffer
 	}
 
 	/**
-	 * The initial offset of the cache compared to the buffer's `byteOffset`.
+	 * The initial offset of the buffer compared to the buffer's `byteOffset`.
 	 */
 	get offset(): number {
 		return this._offset
 	}
 
 	/**
-	 * The length of the cache.
+	 * The length of the buffer.
 	 */
 	get length(): number {
 		return this._length
@@ -108,32 +109,45 @@ export default class Cache extends Uint8Array {
 	 * @param offset The offset to check.
 	 * @param length The length to check.
 	 * @throws If the offset or length are invalid.
+	 * @returns The current buffer instance.
 	 */
-	check = (offset: number, length: number): void => {
+	check = (offset: number, length: number): this => {
 		if (Number.isNaN(offset) || Number.isNaN(length)) {
-			throw new TypeError(`[Cache - check] Invalid offset: '${offset}' or length: '${length}'.`)
+			throw new TypeError(formatError("check", `Invalid offset: '${offset}' or length: '${length}'.`))
 		}
+
 		if (offset < 0 || offset >= this.length) {
-			throw new RangeError(`[Cache - check] Invalid offset: '${offset}', it must be >= 0 & < ${this.length}.`)
-		}
-		if (length < 1 || length > this.length) {
-			throw new RangeError(`[Cache - check] Invalid length: '${length}', it must be > 0 & <= ${this.length}.`)
-		}
-		if (offset + length > this.length) {
 			throw new RangeError(
-				`[Cache - check] Invalid offset (${offset}) + length (${length}): '${offset + length}', it must be <= ${this.length}.`,
+				formatError("check", `Invalid offset: '${offset}', it must be >= 0 & < ${this.length}.`),
 			)
 		}
 
-		if (offset % 1 !== 0) throw new RangeError(`[Cache - check] Invalid offset alignment: '${offset}'.`)
-		if (length % 1 !== 0) throw new RangeError(`[Cache - check] Invalid length alignment: '${length}'.`)
+		if (length < 1 || length > this.length) {
+			throw new RangeError(
+				formatError("check", `Invalid length: '${length}', it must be > 0 & <= ${this.length}.`),
+			)
+		}
+
+		if (offset + length > this.length) {
+			throw new RangeError(
+				formatError(
+					"check",
+					`Invalid offset (${offset}) + length (${length}): '${offset + length}', it must be <= ${this.length}.`,
+				),
+			)
+		}
+
+		if (offset % 1 !== 0) throw new RangeError(formatError("check", `Invalid offset alignment: '${offset}'.`))
+		if (length % 1 !== 0) throw new RangeError(formatError("check", `Invalid length alignment: '${length}'.`))
+
+		return this
 	}
 
 	/**
 	 * Normalizes the endianness parameter.
 	 *
-	 * By default, the cache is written for Little Endian, so if the platform is big endian,
-	 * the endianness parameter is reversed.
+	 * By default, the extended Uint8Array is written for Little Endian, to keep it consistent,
+	 * if the platform is big endian the endianness parameter is reversed.
 	 *
 	 * - Little endian platform:
 	 *   - `LE` read from left to right.
@@ -158,9 +172,9 @@ export default class Cache extends Uint8Array {
 	 */
 
 	/**
-	 * The symbol iterator of the cache, allowing to iterate over the cache
+	 * The symbol iterator of the buffer, allowing to iterate over the buffer
 	 * using `for..of` loops and returning bytes.
-	 * @returns A new Iterator object.
+	 * @returns A new `ArrayIterator`.
 	 */
 	*[Symbol.iterator](): ArrayIterator<number> {
 		for (let i = 0; i < this.length; i++) {
@@ -169,9 +183,12 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * This method returns a new Iterator object for iterating over index-value pairs,
+	 * This method returns a new `ArrayIterator` for iterating over index-value pairs,
 	 * returning an array with the index and the byte.
-	 * @returns A new Iterator object.
+	 *
+	 * **Note:** This method directly uses the `Uint8Array.entries` method in order to keep
+	 * all of its internal additional functionalities.
+	 * @returns A new `ArrayIterator`.
 	 */
 	entries = (): ArrayIterator<[number, number]> => super.entries()
 
@@ -182,133 +199,125 @@ export default class Cache extends Uint8Array {
 	 */
 
 	/**
-	 * Creates a new Cache object of the specified length, initially filled with zeros.
-	 * @param length The length of the cache.
-	 * @param sharedBuffer Whether to use a `ArrayBuffer` (optional, defaults to `true`).
-	 * @returns A new Cache object.
+	 * Creates a new `CyBuffer` instance of the specified length, initially filled with zeros.
+	 * @param length The length of the buffer.
+	 * @returns A new `CyBuffer` instance.
 	 */
-	static alloc = (length: number, sharedBuffer = true): Cache => {
-		if (sharedBuffer) {
-			const buffer = new ArrayBuffer(length)
-			return new Cache(length, { buffer })
-		}
-
-		return new Cache(length)
-	}
+	static alloc = (length: number): CyBuffer => new CyBuffer(length)
 
 	/**
-	 * Creates a new Cache object from an hexadecimal string (supports `0x` prefix).
-	 * @param value The hexadecimal string to create the cache from.
-	 * @returns A new Cache object.
+	 * Creates a new `CyBuffer` instance from an hexadecimal string (supports `0x` prefix).
+	 * @param value The hexadecimal string to create the buffer from.
+	 * @returns A new `CyBuffer` instance.
 	 */
-	static fromHexString = (value: string): Cache => {
+	static fromHexString = (value: string): CyBuffer => {
 		// Remove any `0x` prefix before writing
 		if (value.startsWith("0x")) value = value.slice(2)
 
 		const byteLength = Math.ceil(value.length / 2)
-		const cache = new Cache(byteLength)
-		cache.writeHexString(value, 0, byteLength)
-		return cache
+		const buffer = new CyBuffer(byteLength)
+		buffer.writeHexString(value, 0, byteLength)
+		return buffer
 	}
 
 	/**
-	 * Creates a new Cache object from an UTF-8 string.
-	 * @param value The UTF-8 string to create the cache from.
-	 * @returns A new Cache object.
+	 * Creates a new `CyBuffer` instance from an UTF-8 string.
+	 * @param value The UTF-8 string to create the buffer from.
+	 * @returns A new `CyBuffer` instance.
 	 */
-	static fromUtf8String = (value: string): Cache => {
-		const cache = new Cache(value.length)
-		cache.writeUtf8String(value, 0, value.length)
-		return cache
+	static fromUtf8String = (value: string): CyBuffer => {
+		const buffer = new CyBuffer(value.length)
+		buffer.writeUtf8String(value, 0, value.length)
+		return buffer
 	}
 
 	/**
-	 * Creates a new Cache object from a string using a specific encoding.
-	 * @param value The string to create the cache from.
+	 * Creates a new `CyBuffer` instance from a string using a specific encoding.
+	 * @param value The string to create the buffer from.
 	 * @param encoding The encoding to use (optional, defaults to "utf8").
-	 * @returns A new Cache object.
+	 * @returns A new `CyBuffer` instance.
 	 */
-	static fromString = (value: string, encoding: "hex" | "utf8" = "utf8"): Cache => {
-		const cache = new Cache(value.length)
-		cache.writeString(value, encoding, 0, value.length)
-		return cache
+	static fromString = (value: string, encoding: "hex" | "utf8" = "utf8"): CyBuffer => {
+		const buffer = new CyBuffer(value.length)
+		buffer.writeString(value, encoding, 0, value.length)
+		return buffer
 	}
 
 	/**
-	 * Creates a new Cache object from an array of bits.
-	 * @param array The array of bits to create the cache from.
+	 * Creates a new `CyBuffer` instance from an array of bits.
+	 * @param array The array of bits to create the buffer from.
 	 * @param msbFirst Whether to write the bits from the most significant bit (optional, defaults to `true`).
-	 * @returns A new Cache object.
+	 * @returns A new `CyBuffer` instance.
 	 */
-	static fromBits = (array: Bit[], msbFirst = true): Cache => {
-		const cache = new Cache(Math.ceil(array.length / 8))
-		cache.writeBits(array, 0, array.length, msbFirst)
-		return cache
+	static fromBits = (array: Bit[], msbFirst = true): CyBuffer => {
+		const buffer = new CyBuffer(Math.ceil(array.length / 8))
+		buffer.writeBits(array, 0, array.length, msbFirst)
+		return buffer
 	}
 
 	/**
-	 * Creates a new Cache object from a Uint8Array.
-	 * @param array The Uint8Array to create the cache from.
-	 * @returns A new Cache object.
+	 * Creates a new `CyBuffer` instance from a Uint8Array.
+	 * @param array The Uint8Array to create the buffer from.
+	 * @returns A new `CyBuffer` instance.
 	 */
-	static fromUint8Array = (array: Uint8Array): Cache => {
-		const cache = new Cache(array.byteLength)
-		cache.writeUint8Array(array, 0, array.byteLength)
-		return cache
+	static fromUint8Array = (array: Uint8Array): CyBuffer => {
+		const buffer = new CyBuffer(array.byteLength)
+		buffer.writeUint8Array(array, 0, array.byteLength)
+		return buffer
 	}
 
 	/**
-	 * Creates a new Cache object from a Uint16Array.
-	 * @param array The Uint16Array to create the cache from.
-	 * @returns A new Cache object.
+	 * Creates a new `CyBuffer` instance from a Uint16Array.
+	 * @param array The Uint16Array to create the buffer from.
+	 * @returns A new `CyBuffer` instance.
 	 */
-	static fromUint16Array = (array: Uint16Array): Cache => {
-		const cache = new Cache(array.byteLength)
-		cache.writeUint16Array(array, 0, array.byteLength)
-		return cache
+	static fromUint16Array = (array: Uint16Array): CyBuffer => {
+		const buffer = new CyBuffer(array.byteLength)
+		buffer.writeUint16Array(array, 0, array.byteLength)
+		return buffer
 	}
 
 	/**
-	 * Creates a new Cache object from a Uint32Array.
-	 * @param array The Uint32Array to create the cache from.
-	 * @returns A new Cache object.
+	 * Creates a new `CyBuffer` instance from a Uint32Array.
+	 * @param array The Uint32Array to create the buffer from.
+	 * @returns A new `CyBuffer` instance.
 	 */
-	static fromUint32Array = (array: Uint32Array): Cache => {
-		const cache = new Cache(array.byteLength)
-		cache.writeUint32Array(array, 0, array.byteLength)
-		return cache
+	static fromUint32Array = (array: Uint32Array): CyBuffer => {
+		const buffer = new CyBuffer(array.byteLength)
+		buffer.writeUint32Array(array, 0, array.byteLength)
+		return buffer
 	}
 
 	/**
-	 * Creates a new Cache object from a big integer.
-	 * @param value The big integer to create the cache from.
-	 * @param length The length of the cache (optional, defaults to the value byte length).
+	 * Creates a new `CyBuffer` instance from a big integer.
+	 * @param value The big integer to create the buffer from.
+	 * @param length The length of the buffer (optional, defaults to the value byte length).
 	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
-	 * @returns A new Cache object.
+	 * @returns A new `CyBuffer` instance.
 	 */
-	static fromBigInt = (value: bigint, length?: number, endianness?: "LE" | "BE"): Cache => {
-		if (value < 0n) throw new RangeError(`[Cache - fromBigInt] Invalid big integer: '${value}'.`)
+	static fromBigInt = (value: bigint, length?: number, endianness?: "LE" | "BE"): CyBuffer => {
+		if (value < 0n) throw new RangeError(formatError("fromBigInt", `Invalid big integer: '${value}'.`))
 
 		const byteLength = length ?? Math.ceil(value.toString(16).length / 2)
-		const cache = new Cache(byteLength)
-		cache.writeBigInt(value, 0, byteLength, endianness)
-		return cache
+		const buffer = new CyBuffer(byteLength)
+		buffer.writeBigInt(value, 0, byteLength, endianness)
+		return buffer
 	}
 
 	/**
-	 * Creates a new Cache object from a range of numbers between 0 and 255.
+	 * Creates a new `CyBuffer` instance from a range of numbers between 0 and 255.
 	 * @param start The start of the range.
 	 * @param end The end of the range.
-	 * @returns A new Cache object.
+	 * @returns A new `CyBuffer` instance.
 	 */
-	static fromRange = (start: number, end: number): Cache => {
-		if (start < 0 || start > 255) throw new RangeError(`[Cache - fromRange] Invalid start value: '${start}'.`)
-		if (end < 0 || end > 255) throw new RangeError(`[Cache - fromRange] Invalid end value: '${end}'.`)
+	static fromRange = (start: number, end: number): CyBuffer => {
+		if (start < 0 || start > 255) throw new RangeError(formatError("fromRange", `Invalid start value: '${start}'.`))
+		if (end < 0 || end > 255) throw new RangeError(formatError("fromRange", `Invalid end value: '${end}'.`))
 
 		const length = end - start
-		const cache = new Cache(length)
-		for (let i = 0; i < length; i++) cache[i] = start + i
-		return cache
+		const buffer = new CyBuffer(length)
+		for (let i = 0; i < length; i++) buffer[i] = start + i
+		return buffer
 	}
 
 	/**
@@ -318,24 +327,26 @@ export default class Cache extends Uint8Array {
 	 */
 
 	/**
-	 * Writes an hexadecimal string to the cache (supports `0x` prefix).
+	 * Writes an hexadecimal string to the buffer (supports `0x` prefix).
 	 *
 	 * **Note:** There is no `endianness` parameter here as there is no concept of word size,
 	 * the order will be the same as the string.
-	 * @param value The hexadecimal string to write to the cache.
+	 * @param value The hexadecimal string to write to the buffer.
 	 * @param offset The offset to start writing at (optional, defaults to 0).
 	 * @param length The length to write (optional, defaults to the value length).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeHexString = (value: string, offset = 0, length = value.length / 2): this => {
 		if (length === 0) {
-			throw new RangeError(`[Cache - writeHexString] Invalid hexadecimal string length: '${length}'.`)
+			throw new RangeError(formatError("writeHexString", `Invalid hexadecimal string length: '${length}'.`))
 		}
+
 		if (length % 1 !== 0) {
-			throw new RangeError(`[Cache - writeHexString] Invalid hexadecimal string length: '${length}'.`)
+			throw new RangeError(formatError("writeHexString", `Invalid hexadecimal string length: '${length}'.`))
 		}
+
 		if (value.length % 2 !== 0) {
-			throw new RangeError(`[Cache - writeHexString] Invalid hexadecimal string length: '${value.length}'.`)
+			throw new RangeError(formatError("writeHexString", `Invalid hexadecimal string length: '${value.length}'.`))
 		}
 
 		// Remove any `0x` prefix before writing
@@ -361,15 +372,15 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Writes an UTF-8 string to the cache.
-	 * @param value The UTF-8 string to write to the cache.
+	 * Writes an UTF-8 string to the buffer.
+	 * @param value The UTF-8 string to write to the buffer.
 	 * @param offset The offset to start writing at (optional, defaults to 0).
 	 * @param length The length to write (optional, defaults to the value length).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeUtf8String = (value: string, offset = 0, length = value.length): this => {
 		if (length === 0) {
-			throw new RangeError(`[Cache - writeUtf8String] Invalid UTF-8 string length: '${length}'.`)
+			throw new RangeError(formatError("writeUtf8String", `Invalid UTF-8 string length: '${length}'.`))
 		}
 
 		this.check(offset, length)
@@ -379,7 +390,7 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Writes a string to the cache using a specific encoding.
+	 * Writes a string to the buffer using a specific encoding.
 	 *
 	 * **Note:** The encoding is limited to the following:
 	 * - `utf8`: UTF-8 encoding.
@@ -388,11 +399,11 @@ export default class Cache extends Uint8Array {
 	 * **Notes:**
 	 * - The `hex` encoding supports `0x` prefix but there's no `endianness` parameter here,
 	 *   it follows the order of the string.
-	 * @param value The string to write to the cache.
+	 * @param value The string to write to the buffer.
 	 * @param encoding The encoding to use (optional, defaults to "utf8").
 	 * @param offset The offset to start writing at (optional, defaults to 0).
 	 * @param length The length to write (optional, defaults to the value length).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeString = (value: string, encoding: "hex" | "utf8" = "utf8", offset = 0, length = value.length): this => {
 		if (encoding === "utf8") {
@@ -405,19 +416,19 @@ export default class Cache extends Uint8Array {
 			return this
 		}
 
-		throw new TypeError(`[Cache - writeString] Invalid encoding: '${encoding}'.`)
+		throw new TypeError(formatError("writeString", `Invalid encoding: '${encoding}'.`))
 	}
 
 	/**
-	 * Writes a single bit to the cache.
+	 * Writes a single bit to the buffer.
 	 * @param value The value to write (`0` or `1`).
 	 * @param bitOffset The offset to read from **as a number of bits** (optional, defaults to 0).
 	 * @param msbFirst Whether to write the bit to the most significant bit (optional, defaults to `true`).
 	 * @param check Whether to enable the overall check (optional, defaults to `true`).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeBit = (value: Bit, bitOffset = 0, msbFirst = true, check = true): this => {
-		if (value < 0 || value > 1) throw new RangeError(`[Cache - writeBit] Value is out of bounds: '${value}'.`)
+		if (value < 0 || value > 1) throw new RangeError(formatError("writeBit", `Value is out of bounds: '${value}'.`))
 
 		const offset = Math.floor(bitOffset / 8)
 		if (check) this.check(offset, 1)
@@ -430,14 +441,17 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Writes a single byte to the cache.
+	 * Writes a single byte to the buffer.
 	 * @param value The value to write.
 	 * @param offset The offset to write to (optional, defaults to 0).
 	 * @param check Whether to enable the overall check (optional, defaults to `true`).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeUint8 = (value: number, offset = 0, check = true): this => {
-		if (value < 0 || value > 0xff) throw new RangeError(`[Cache - writeUint8] Value is out of bounds: '${value}'.`)
+		if (value < 0 || value > 0xff) {
+			throw new RangeError(formatError("writeUint8", `Value is out of bounds: '${value}'.`))
+		}
+
 		if (check) this.check(offset, 1)
 
 		value >>>= 0
@@ -447,19 +461,20 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * **[LITTLE ENDIAN]** Writes a single 16-bit value to the cache.
+	 * **[LITTLE ENDIAN]** Writes a single 16-bit value to the buffer.
 	 * @param value The value to write.
 	 * @param offset The offset to write to (optional, defaults to 0).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 2 bytes (optional, defaults to `true`).
 	 * @param check Whether to enable the overall check (optional, defaults to `true`).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeUint16LE = (value: number, offset = 0, verifyAlignment = true, check = true): this => {
 		if (value < 0 || value > 0xffff) {
-			throw new RangeError(`[Cache - writeUint16LE] Value is out of bounds: '${value}'.`)
+			throw new RangeError(formatError("writeUint16LE", `Value is out of bounds: '${value}'.`))
 		}
+
 		if (verifyAlignment && offset % 2 !== 0) {
-			throw new RangeError(`[Cache - writeUint16LE] Invalid offset alignment: '${offset}' (%2).`)
+			throw new RangeError(formatError("writeUint16LE", `Invalid offset alignment: '${offset}' (%2).`))
 		}
 
 		if (check) this.check(offset, 2)
@@ -472,19 +487,20 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * **[BIG ENDIAN]** Writes a single 16-bit value to the cache.
+	 * **[BIG ENDIAN]** Writes a single 16-bit value to the buffer.
 	 * @param value The value to write.
 	 * @param offset The offset to write to (optional, defaults to 0).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 2 bytes (optional, defaults to `true`).
 	 * @param check Whether to enable the overall check (optional, defaults to `true`).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeUint16BE = (value: number, offset = 0, verifyAlignment = true, check = true): this => {
 		if (value < 0 || value > 0xffff) {
-			throw new RangeError(`[Cache - writeUint16BE] Value is out of bounds: '${value}'.`)
+			throw new RangeError(formatError("writeUint16BE", `Value is out of bounds: '${value}'.`))
 		}
+
 		if (verifyAlignment && offset % 2 !== 0) {
-			throw new RangeError(`[Cache - writeUint16BE] Invalid offset alignment: '${offset}' (%2).`)
+			throw new RangeError(formatError("writeUint16BE", `Invalid offset alignment: '${offset}' (%2).`))
 		}
 
 		if (check) this.check(offset, 2)
@@ -497,13 +513,13 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Writes a single 16-bit value to the cache.
+	 * Writes a single 16-bit value to the buffer.
 	 * @param value The value to write.
 	 * @param offset The offset to write to (optional, defaults to 0).
 	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 2 bytes (optional, defaults to `true`).
 	 * @param check Whether to enable the overall check (optional, defaults to `true`).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeUint16 = (
 		value: number,
@@ -522,19 +538,20 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * **[LITTLE ENDIAN]** Writes a single 32-bit word to the cache.
+	 * **[LITTLE ENDIAN]** Writes a single 32-bit word to the buffer.
 	 * @param value The value to write.
 	 * @param offset The offset to write to (optional, defaults to 0).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 4 bytes (optional, defaults to `true`).
 	 * @param check Whether to enable the overall check (optional, defaults to `true`).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeUint32LE = (value: number, offset = 0, verifyAlignment = true, check = true): this => {
 		if (value < 0 || value > 0xffffffff) {
-			throw new RangeError(`[Cache - writeUint32LE] Value is out of bounds: '${value}'.`)
+			throw new RangeError(formatError("writeUint32LE", `Value is out of bounds: '${value}'.`))
 		}
+
 		if (verifyAlignment && offset % 4 !== 0) {
-			throw new RangeError(`[Cache - writeUint32LE] Invalid offset alignment: '${offset}' (%4).`)
+			throw new RangeError(formatError("writeUint32LE", `Invalid offset alignment: '${offset}' (%4).`))
 		}
 
 		if (check) this.check(offset, 4)
@@ -549,19 +566,20 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * **[BIG ENDIAN]** Writes a single 32-bit word to the cache.
+	 * **[BIG ENDIAN]** Writes a single 32-bit word to the buffer.
 	 * @param value The value to write.
 	 * @param offset The offset to write to (optional, defaults to 0).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 4 bytes (optional, defaults to `true`).
 	 * @param check Whether to enable the overall check (optional, defaults to `true`).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeUint32BE = (value: number, offset = 0, verifyAlignment = true, check = true): this => {
 		if (value < 0 || value > 0xffffffff) {
-			throw new RangeError(`[Cache - writeUint32BE] Value is out of bounds: '${value}'.`)
+			throw new RangeError(formatError("writeUint32BE", `Value is out of bounds: '${value}'.`))
 		}
+
 		if (verifyAlignment && offset % 4 !== 0) {
-			throw new RangeError(`[Cache - writeUint32BE] Invalid offset alignment: '${offset}' (%4).`)
+			throw new RangeError(formatError("writeUint32BE", `Invalid offset alignment: '${offset}' (%4).`))
 		}
 
 		if (check) this.check(offset, 4)
@@ -576,13 +594,13 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Writes a single 32-bit word to the cache.
+	 * Writes a single 32-bit word to the buffer.
 	 * @param value The value to write.
 	 * @param offset The offset to write to (optional, defaults to 0).
 	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 4 bytes (optional, defaults to `true`).
 	 * @param check Whether to enable the overall check (optional, defaults to `true`).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeUint32 = (
 		value: number,
@@ -601,16 +619,16 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Writes an array of bits to the cache.
-	 * @param array The array of bits to write to the cache.
+	 * Writes an array of bits to the buffer.
+	 * @param array The array of bits to write to the buffer.
 	 * @param bitOffset The offset to start writing at **as a number of bits** (optional, defaults to 0).
 	 * @param bitLength The length to write **as a number of bits** (optional, defaults to the array length).
 	 * @param msbFirst Whether to write the bits from the most significant bit (optional, defaults to `true`).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeBits = (array: Bit[], bitOffset = 0, bitLength = array.length, msbFirst = true): this => {
 		if (!array || !Array.isArray(array)) {
-			throw new TypeError(`[Cache - writeBits] Invalid array of bits: '${array}'.`)
+			throw new TypeError(formatError("writeBits", `Invalid array of bits: '${array}'.`))
 		}
 
 		const offset = Math.floor(bitOffset / 8)
@@ -623,16 +641,16 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Writes a Uint8Array to the cache.
-	 * @param array The Uint8Array to write to the cache.
+	 * Writes a Uint8Array to the buffer.
+	 * @param array The Uint8Array to write to the buffer.
 	 * @param offset The offset to start writing at (optional, defaults to 0).
 	 * @param length The length to write (optional, defaults to the array length).
 	 * @param arrayOffset The offset to start reading from in the array (optional, defaults to 0).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeUint8Array = (array: Uint8Array, offset = 0, length = array.byteLength, arrayOffset = 0): this => {
 		if (!array || !(array instanceof Uint8Array)) {
-			throw new TypeError(`[Cache - writeUint8Array] Invalid Uint8Array: '${array}'.`)
+			throw new TypeError(formatError("writeUint8Array", `Invalid Uint8Array: '${array}'.`))
 		}
 
 		this.check(offset, length)
@@ -643,14 +661,14 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Writes a Uint16Array to the cache.
-	 * @param array The Uint16Array to write to the cache.
+	 * Writes a Uint16Array to the buffer.
+	 * @param array The Uint16Array to write to the buffer.
 	 * @param offset The offset to start writing at (optional, defaults to 0).
 	 * @param length The length to write (optional, defaults to the array length).
 	 * @param arrayOffset The offset to start reading from in the array (optional, defaults to 0).
 	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 2 bytes (optional, defaults to `true`).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeUint16Array = (
 		array: Uint16Array,
@@ -661,10 +679,11 @@ export default class Cache extends Uint8Array {
 		verifyAlignment = true,
 	): this => {
 		if (!array || !(array instanceof Uint16Array)) {
-			throw new TypeError(`[Cache - writeUint16Array] Invalid Uint16Array: '${array}'.`)
+			throw new TypeError(formatError("writeUint16Array", `Invalid Uint16Array: '${array}'.`))
 		}
+
 		if (verifyAlignment && offset % 2 !== 0) {
-			throw new RangeError(`[Cache - writeUint16Array] Invalid offset alignment: '${offset}' (%2).`)
+			throw new RangeError(formatError("writeUint16Array", `Invalid offset alignment: '${offset}' (%2).`))
 		}
 
 		this.check(offset, length)
@@ -685,14 +704,14 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Writes a Uint32Array to the cache.
-	 * @param array The Uint32Array to write to the cache.
+	 * Writes a Uint32Array to the buffer.
+	 * @param array The Uint32Array to write to the buffer.
 	 * @param offset The offset to start writing at (optional, defaults to 0).
 	 * @param length The length to write (optional, defaults to the array length).
 	 * @param arrayOffset The offset to start reading from in the array (optional, defaults to 0).
 	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 4 bytes (optional, defaults to `true`).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeUint32Array = (
 		array: Uint32Array,
@@ -703,10 +722,11 @@ export default class Cache extends Uint8Array {
 		verifyAlignment = true,
 	): this => {
 		if (!array || !(array instanceof Uint32Array)) {
-			throw new TypeError(`[Cache - writeUint32Array] Invalid Uint32Array: '${array}'.`)
+			throw new TypeError(formatError("writeUint32Array", `Invalid Uint32Array: '${array}'.`))
 		}
+
 		if (verifyAlignment && offset % 4 !== 0) {
-			throw new RangeError(`[Cache - writeUint32Array] Invalid offset alignment: '${offset}' (%4).`)
+			throw new RangeError(formatError("writeUint32Array", `Invalid offset alignment: '${offset}' (%4).`))
 		}
 
 		this.check(offset, length)
@@ -727,16 +747,17 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * **[LITTLE ENDIAN]** Writes a big integer of any size to the cache.
+	 * **[LITTLE ENDIAN]** Writes a big integer of any size to the buffer.
 	 *
 	 * **No alignment is required, the length is automatically calculated.**
-	 * @param value The big integer to write to the cache.
+	 * @param value The big integer to write to the buffer.
 	 * @param offset The offset to start writing at (optional, defaults to 0).
 	 * @param length The length to write (optional, defaults to the array length).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeBigIntLE = (value: bigint, offset = 0, length = Math.ceil(Number(value).toString(16).length / 2)): this => {
-		if (value < 0n) throw new RangeError(`[Cache - writeBigIntLE] Invalid big integer value: '${value}'.`)
+		if (value < 0n) throw new RangeError(formatError("writeBigIntLE", `Invalid big integer value: '${value}'.`))
+
 		this.check(offset, length)
 
 		for (let i = 0; i < length; i++) {
@@ -748,16 +769,17 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * **[BIG ENDIAN]** Writes a big integer of any size to the cache.
+	 * **[BIG ENDIAN]** Writes a big integer of any size to the buffer.
 	 *
 	 * **No alignment is required, the length is automatically calculated.**
-	 * @param value The big integer to write to the cache.
+	 * @param value The big integer to write to the buffer.
 	 * @param offset The offset to start writing at (optional, defaults to 0).
 	 * @param length The length to write (optional, defaults to the array length).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeBigIntBE = (value: bigint, offset = 0, length = Math.ceil(Number(value).toString(16).length / 2)): this => {
-		if (value < 0n) throw new RangeError(`[Cache - writeBigIntBE] Invalid big integer value: '${value}'.`)
+		if (value < 0n) throw new RangeError(formatError("writeBigIntBE", `Invalid big integer value: '${value}'.`))
+
 		this.check(offset, length)
 
 		for (let i = length - 1; i >= 0; i--) {
@@ -769,14 +791,14 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Writes a big integer of any size to the cache.
+	 * Writes a big integer of any size to the buffer.
 	 *
 	 * **No alignment is required, the length is automatically calculated.**
-	 * @param value The big integer to write to the cache.
+	 * @param value The big integer to write to the buffer.
 	 * @param offset The offset to start writing at (optional, defaults to 0).
 	 * @param length The length to write (optional, defaults to the array length).
 	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
-	 * @returns The cache instance.
+	 * @returns The current buffer instance.
 	 */
 	writeBigInt = (
 		value: bigint,
@@ -800,9 +822,9 @@ export default class Cache extends Uint8Array {
 	 */
 
 	/**
-	 * Reads a part of the cache and returns it as an hexadecimal string (always uppercase).
+	 * Reads a part of the buffer and returns it as an hexadecimal string (always uppercase).
 	 * @param offset The offset to start reading from (optional, defaults to 0).
-	 * @param length The length to read (optional, defaults to the cache length - offset).
+	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
 	 * @returns The hexadecimal string.
 	 */
@@ -817,9 +839,9 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Reads a part of the cache and returns it as an UTF-8 string.
+	 * Reads a part of the buffer and returns it as an UTF-8 string.
 	 * @param offset The offset to start reading from (optional, defaults to 0).
-	 * @param length The length to read (optional, defaults to the cache length - offset).
+	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @returns The UTF-8 string.
 	 */
 	readUtf8String = (offset = 0, length = this.length - offset): string => {
@@ -828,7 +850,7 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Reads a part of the cache and returns it as a string using a specific encoding.
+	 * Reads a part of the buffer and returns it as a string using a specific encoding.
 	 *
 	 * **Note:** The encoding is limited to the following:
 	 * - `utf8`: UTF-8 encoding.
@@ -837,7 +859,7 @@ export default class Cache extends Uint8Array {
 	 * **Note:** The `hex` encoding supports `0x` prefix but there's no `endianness` parameter here,
 	 * it follows the order of the string.
 	 * @param offset The offset to start reading from (optional, defaults to 0).
-	 * @param length The length to read (optional, defaults to the cache length - offset).
+	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @param encoding The encoding to use (optional, defaults to "utf8").
 	 * @returns The string.
 	 */
@@ -845,11 +867,11 @@ export default class Cache extends Uint8Array {
 		if (encoding === "utf8") return this.readUtf8String(offset, length)
 		if (encoding === "hex") return this.readHexString(offset, length)
 
-		throw new TypeError(`[Cache - readString] Invalid encoding: '${encoding}'.`)
+		throw new TypeError(formatError("readString", `Invalid encoding: '${encoding}'.`))
 	}
 
 	/**
-	 * Read a single bit from the cache.
+	 * Read a single bit from the buffer.
 	 *
 	 * **Note:** The offset is in bits, not bytes in contrast to the other methods.
 	 * @param bitOffset The offset to read from **as a number of bits** (optional, defaults to 0).
@@ -866,7 +888,7 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Reads a single byte from the cache.
+	 * Reads a single byte from the buffer.
 	 *
 	 * Equivalent to using the index signature (square bracket notation).
 	 * @param offset The offset to start reading from (optional, defaults to 0).
@@ -879,7 +901,7 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * **[LITTLE ENDIAN]** Reads a single 16-bit value from the cache.
+	 * **[LITTLE ENDIAN]** Reads a single 16-bit value from the buffer.
 	 * @param offset The offset to read from (optional, defaults to 0).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 2 bytes (optional, defaults to `true`).
 	 * @param check Whether to enable the overall check (optional, defaults to `true`).
@@ -887,7 +909,7 @@ export default class Cache extends Uint8Array {
 	 */
 	readUint16LE = (offset = 0, verifyAlignment = true, check = true): number => {
 		if (verifyAlignment && offset % 2 !== 0) {
-			throw new RangeError(`[Cache - readUint16LE] Invalid offset alignment: '${offset}' (%2).`)
+			throw new RangeError(formatError("readUint16LE", `Invalid offset alignment: '${offset}' (%2).`))
 		}
 
 		if (check) this.check(offset, 2)
@@ -896,7 +918,7 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * **[BIG ENDIAN]** Reads a single 16-bit value from the cache.
+	 * **[BIG ENDIAN]** Reads a single 16-bit value from the buffer.
 	 * @param offset The offset to read from (optional, defaults to 0).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 2 bytes (optional, defaults to `true`).
 	 * @param check Whether to enable the overall check (optional, defaults to `true`).
@@ -904,7 +926,7 @@ export default class Cache extends Uint8Array {
 	 */
 	readUint16BE = (offset = 0, verifyAlignment = true, check = true): number => {
 		if (verifyAlignment && offset % 2 !== 0) {
-			throw new RangeError(`[Cache - readUint16BE] Invalid offset alignment: '${offset}' (%2).`)
+			throw new RangeError(formatError("readUint16BE", `Invalid offset alignment: '${offset}' (%2).`))
 		}
 
 		if (check) this.check(offset, 2)
@@ -913,7 +935,7 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Reads a single 16-bit value from the cache.
+	 * Reads a single 16-bit value from the buffer.
 	 * @param offset The offset to read from (optional, defaults to 0).
 	 * @param endianness Whether to read the value in Little Endian (optional, defaults to `false`).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 2 bytes (optional, defaults to `true`).
@@ -926,14 +948,14 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * **[LITTLE ENDIAN]** Reads a single 32-bit word from the cache.
+	 * **[LITTLE ENDIAN]** Reads a single 32-bit word from the buffer.
 	 * @param offset The offset to read from (optional, defaults to 0).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 4 bytes (optional, defaults to `true`).
 	 * @param check Whether to enable the overall check (optional, defaults to `true`).
 	 */
 	readUint32LE = (offset = 0, verifyAlignment = true, check = true): number => {
 		if (verifyAlignment && offset % 4 !== 0) {
-			throw new RangeError(`[Cache - readUint32LE] Invalid offset alignment: '${offset}' (%4).`)
+			throw new RangeError(formatError("readUint32LE", `Invalid offset alignment: '${offset}' (%4).`))
 		}
 
 		if (check) this.check(offset, 4)
@@ -942,14 +964,14 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * **[BIG ENDIAN]** Reads a single 32-bit word from the cache.
+	 * **[BIG ENDIAN]** Reads a single 32-bit word from the buffer.
 	 * @param offset The offset to read from (optional, defaults to 0).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 4 bytes (optional, defaults to `true`).
 	 * @param check Whether to enable the overall check (optional, defaults to `true`).
 	 */
 	readUint32BE = (offset = 0, verifyAlignment = true, check = true): number => {
 		if (verifyAlignment && offset % 4 !== 0) {
-			throw new RangeError(`[Cache - readUint32BE] Invalid offset alignment: '${offset}' (%4).`)
+			throw new RangeError(formatError("readUint32BE", `Invalid offset alignment: '${offset}' (%4).`))
 		}
 
 		if (check) this.check(offset, 4)
@@ -958,7 +980,7 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Reads a single 32-bit word from the cache.
+	 * Reads a single 32-bit word from the buffer.
 	 * @param offset The offset to read from (optional, defaults to 0).
 	 * @param endianness Whether to read the value in Little Endian (optional, defaults to `false`).
 	 * @param verifyAlignment Whether to verify that the offset is aligned to 4 bytes (optional, defaults to `true`).
@@ -970,9 +992,9 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Reads a part of the cache and return it as a bit array.
+	 * Reads a part of the buffer and return it as a bit array.
 	 * @param offset The offset to start reading from (optional, defaults to 0).
-	 * @param length The length to read (optional, defaults to the cache length - offset).
+	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @param msbFirst Whether to read the bits from the most significant bit (optional, defaults to `true`).
 	 * @returns The bit array.
 	 */
@@ -985,9 +1007,9 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Reads a part of the cache and return it as a Uint8Array.
+	 * Reads a part of the buffer and return it as a Uint8Array.
 	 * @param offset The offset to start reading from (optional, defaults to 0).
-	 * @param length The length to read (optional, defaults to the cache length - offset).
+	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @returns The Uint8Array.
 	 */
 	readUint8Array = (offset = 0, length = this.length - offset): Uint8Array => {
@@ -995,9 +1017,9 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Reads a part of the cache and return it as a Uint16Array.
+	 * Reads a part of the buffer and return it as a Uint16Array.
 	 * @param offset The offset to start reading from (optional, defaults to 0).
-	 * @param length The length to read (optional, defaults to the cache length - offset).
+	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @returns The Uint16Array.
 	 */
 	readUint16Array = (offset = 0, length = this.length - offset): Uint16Array => {
@@ -1005,9 +1027,9 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Reads a part of the cache and return it as a Uint32Array.
+	 * Reads a part of the buffer and return it as a Uint32Array.
 	 * @param offset The offset to start reading from (optional, defaults to 0).
-	 * @param length The length to read (optional, defaults to the cache length - offset).
+	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @returns The Uint32Array.
 	 */
 	readUint32Array = (offset = 0, length = this.length - offset): Uint32Array => {
@@ -1015,9 +1037,9 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * **[LITTLE ENDIAN]** Reads a certain amount of bytes from the cache and converts it into a big integer.
+	 * **[LITTLE ENDIAN]** Reads a certain amount of bytes from the buffer and converts it into a big integer.
 	 * @param offset The offset to start reading from (optional, defaults to 0).
-	 * @param length The length to read (optional, defaults to the cache length - offset).
+	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @returns The big integer.
 	 */
 	readBigIntLE = (offset = 0, length = this.length - offset): bigint => {
@@ -1033,9 +1055,9 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * **[BIG ENDIAN]** Reads a certain amount of bytes from the cache and converts it into a big integer.
+	 * **[BIG ENDIAN]** Reads a certain amount of bytes from the buffer and converts it into a big integer.
 	 * @param offset The offset to start reading from (optional, defaults to 0).
-	 * @param length The length to read (optional, defaults to the cache length - offset).
+	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @returns The big integer.
 	 */
 	readBigIntBE = (offset = 0, length = this.length - offset): bigint => {
@@ -1051,9 +1073,9 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Reads a certain amount of bytes from the cache and converts it into a big integer.
+	 * Reads a certain amount of bytes from the buffer and converts it into a big integer.
 	 * @param offset The offset to start reading from (optional, defaults to 0).
-	 * @param length The length to read (optional, defaults to the cache length - offset).
+	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @param endianness Whether to read the value in Little Endian (optional, defaults to `false`).
 	 * @returns The big integer.
 	 */
@@ -1069,7 +1091,7 @@ export default class Cache extends Uint8Array {
 	 */
 
 	/**
-	 * Converts the cache into an hexadecimal string (always uppercase).
+	 * Converts the buffer into an hexadecimal string (always uppercase).
 	 * @param prefix Whether to prefix the hexadecimal string with `0x` (optional, defaults to `false`).
 	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
 	 * @returns The hexadecimal string.
@@ -1086,16 +1108,16 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Converts the cache into an UTF-8 string.
+	 * Converts the buffer into an UTF-8 string.
 	 * @returns The UTF-8 string.
 	 */
 	toUtf8String = (): string => Buffer.from(this.buffer).toString("utf8")
 
 	/**
-	 * Converts the cache into a string representation (hex string is always uppercase).
+	 * Converts the buffer into a string representation (hex string is always uppercase).
 	 * @param encoding The encoding to use (optional, defaults to "hex").
 	 * @param hexPrefix Whether to prefix the hexadecimal string with `0x` (optional, defaults to `false`).
-	 * @returns The string representation of the cache.
+	 * @returns The string representation of the buffer.
 	 */
 	toString = (encoding: "utf8" | "hex" = "hex", hexPrefix = false): string => {
 		if (encoding === "utf8") return this.toUtf8String()
@@ -1103,7 +1125,7 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Converts the cache into a bit array.
+	 * Converts the buffer into a bit array.
 	 * @param msbFirst Whether to read the bits from the most significant bit (optional, defaults to `true`).
 	 * @returns The bit array.
 	 */
@@ -1115,19 +1137,19 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Converts the cache into a Uint8Array.
+	 * Converts the buffer into a Uint8Array.
 	 * @returns The Uint8Array.
 	 */
 	toUint8Array = (): Uint8Array => new Uint8Array(this.buffer, this.offset, this.length)
 
 	/**
-	 * Converts the cache into a Uint16Array.
+	 * Converts the buffer into a Uint16Array.
 	 * @returns The Uint16Array.
 	 */
 	toUint16Array = (): Uint16Array => new Uint16Array(this.buffer, this.offset, this.length / 2)
 
 	/**
-	 * Converts the cache into a Uint32Array.
+	 * Converts the buffer into a Uint32Array.
 	 * @returns The Uint32Array.
 	 */
 	toUint32Array = (): Uint32Array => new Uint32Array(this.buffer, this.offset, this.length / 4)
@@ -1139,17 +1161,17 @@ export default class Cache extends Uint8Array {
 	 */
 
 	/**
-	 * Checks if the current cache is equal to the specified cache.
-	 * @param cache The cache to compare to.
-	 * @returns Whether the caches are equal.
+	 * Checks if the current buffer is equal to the specified buffer.
+	 * @param buffer The buffer to compare to.
+	 * @returns Whether the buffers are equal.
 	 */
-	equals = (cache: Cache): boolean => {
-		if (this.length !== cache.length) {
+	equals = (buffer: CyBuffer): boolean => {
+		if (this.length !== buffer.length) {
 			return false
 		}
 
 		for (let i = 0; i < this.length; i++) {
-			if (this[i] !== cache[i]) {
+			if (this[i] !== buffer[i]) {
 				return false
 			}
 		}
@@ -1158,8 +1180,8 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Check if the cache is empty.
-	 * @returns Whether the cache is empty.
+	 * Check if the buffer is empty.
+	 * @returns Whether the buffer is empty.
 	 */
 	isEmpty = (): boolean => {
 		for (let i = 0; i < this.length; i++) {
@@ -1176,12 +1198,12 @@ export default class Cache extends Uint8Array {
 	 */
 
 	/**
-	 * Randomly fills the cache with bytes.
+	 * Randomly fills the buffer with bytes.
 	 *
 	 * **WARNING:** This method is not safe for cryptographic contexts, use the `safeRandomFill` method
 	 * when security is a concern.
 	 * @param offset The offset to start filling at (optional, defaults to 0).
-	 * @param length The length to fill (optional, defaults to the cache length - offset).
+	 * @param length The length to fill (optional, defaults to the buffer length - offset).
 	 */
 	randomFill = (offset = 0, length = this.length - offset) => {
 		this.check(offset, length)
@@ -1192,12 +1214,12 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Randomly fills the cache with bytes.
+	 * Randomly fills the buffer with bytes.
 	 *
 	 * **WARNING:** This method is safe for cryptographic contexts, but is far slower than the `randomFill` method,
 	 * use this method when security is a concern. Uses the Node.js `crypto.randomFillSync` method.
 	 * @param offset The offset to start filling at (optional, defaults to 0).
-	 * @param length The length to fill (optional, defaults to the cache length - offset).
+	 * @param length The length to fill (optional, defaults to the buffer length - offset).
 	 */
 	safeRandomFill = (offset = 0, length = this.length) => randomFillSync(this, offset, length)
 
@@ -1208,28 +1230,28 @@ export default class Cache extends Uint8Array {
 	 */
 
 	/**
-	 * Copies the cache into a new cache.
+	 * Copies the buffer into a new buffer.
 	 * @param offset The offset to start copying at (optional, defaults to 0).
-	 * @param length The length to copy (optional, defaults to the cache length).
-	 * @returns The copied cache.
+	 * @param length The length to copy (optional, defaults to the buffer length).
+	 * @returns A new buffer containing the copied data.
 	 */
-	copy = (offset = 0, length = this.length): Cache => {
+	copy = (offset = 0, length = this.length): CyBuffer => {
 		this.check(offset, length)
-		const cache = new Cache(length)
-		for (let i = 0; i < length; i++) cache[i] = this[i + offset]
-		return cache
+		const buffer = new CyBuffer(length)
+		for (let i = 0; i < length; i++) buffer[i] = this[i + offset]
+		return buffer
 	}
 
 	/**
-	 * Returns a new cache that references the same memory as the original cache,
+	 * Returns a new buffer that references the same memory as the original buffer,
 	 * A lot more efficient than copying it (~ 4 times faster than the `copy` method).
 	 * @param offset The start offset (optional, defaults to 0).
-	 * @param end The end offset (optional, defaults to the cache length).
-	 * @returns The subarray.
+	 * @param end The end offset (optional, defaults to the buffer length).
+	 * @returns The subarray pointing to the same memory.
 	 */
-	subarray = (offset = 0, length = this.length): Cache => {
+	subarray = (offset = 0, length = this.length): CyBuffer => {
 		this.check(offset, length)
-		return new Cache(length, {
+		return new CyBuffer(length, {
 			buffer: this.buffer,
 			offset: offset,
 			length: length,
@@ -1237,15 +1259,20 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Swaps the order of the cache.
+	 * Swaps the order of the buffer.
 	 * @param offset The offset to start swapping at (optional, defaults to 0).
-	 * @param length The length to swap (optional, defaults to the cache length).
+	 * @param length The length to swap (optional, defaults to the buffer length).
 	 * @param wordLength The length per word (optional, defaults to 4).
+	 * @returns The current buffer instance.
 	 */
 	swap = (offset = 0, length = this.length, wordLength = 4): this => {
+		if (wordLength < 2) throw new RangeError(formatError("swap", `Invalid word length: '${wordLength}'.`))
+
+		if (wordLength % 2 !== 0) {
+			throw new RangeError(formatError("swap", `Invalid word length alignment: '${wordLength}'.`))
+		}
+
 		this.check(offset, length)
-		if (wordLength < 2) throw new RangeError(`[Cache - swap] Invalid word length: '${wordLength}'.`)
-		if (wordLength % 2 !== 0) throw new RangeError(`[Cache - swap] Invalid word length alignment: '${wordLength}'.`)
 
 		const calculatedLength = offset + length
 		for (let i = 0; i < calculatedLength; i += wordLength) {
@@ -1262,10 +1289,10 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Reverses a part of the cache.
+	 * Reverses a part of the buffer.
 	 * @param offset The offset to start reversing at (optional, defaults to 0).
-	 * @param length The length to reverse (optional, defaults to the cache length).
-	 * @returns The cache.
+	 * @param length The length to reverse (optional, defaults to the buffer length).
+	 * @returns The current buffer instance.
 	 */
 	partialReverse = (offset = 0, length = this.length): this => {
 		this.check(offset, length)
@@ -1285,8 +1312,8 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Reverses the entire cache.
-	 * @returns The cache.
+	 * Reverses the entire buffer.
+	 * @returns The current buffer instance.
 	 */
 	reverse = (): this => {
 		super.reverse()
@@ -1294,7 +1321,8 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Rotates the cache to the left.
+	 * Rotates the buffer to the left.
+	 * @returns The current buffer instance.
 	 */
 	rotateLeft = (): this => {
 		const first = this[0]
@@ -1304,8 +1332,8 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Rotates the cache to the right.
-	 * @returns The cache.
+	 * Rotates the buffer to the right.
+	 * @returns The current buffer instance.
 	 */
 	rotateRight = (): this => {
 		const last = this[this.length - 1]
@@ -1315,11 +1343,11 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Shifts the cache to the left, filling the empty space with zeros.
+	 * Shifts the buffer to the left, filling the empty space with zeros.
 	 * @param offset The offset to start shifting at (optional, defaults to 0).
-	 * @param length The length to shift (optional, defaults to the cache length).
+	 * @param length The length to shift (optional, defaults to the buffer length).
 	 * @param shift The number of bytes to shift (optional, defaults to 1).
-	 * @returns The cache.
+	 * @returns The current buffer instance.
 	 */
 	shiftLeft = (offset = 0, length = this.length, shift = 1): this => {
 		this.check(offset, length)
@@ -1331,11 +1359,11 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Shifts the cache to the right, filling the empty spaces with zeros.
+	 * Shifts the buffer to the right, filling the empty spaces with zeros.
 	 * @param offset The offset to start shifting at (optional, defaults to 0).
-	 * @param length The length to shift (optional, defaults to the cache length).
+	 * @param length The length to shift (optional, defaults to the buffer length).
 	 * @param shift The number of bytes to shift (optional, defaults to 1).
-	 * @returns The cache.
+	 * @returns The current buffer instance.
 	 */
 	shiftRight = (offset = 0, length = this.length, shift = 1): this => {
 		this.check(offset, length)
@@ -1347,24 +1375,25 @@ export default class Cache extends Uint8Array {
 	}
 
 	/**
-	 * Fills the cache with a specified value.
-	 * @param value The value to fill the cache with.
+	 * Fills the buffer with a specified value.
+	 * @param value The value to fill the buffer with.
 	 * @param offset The offset to start filling at (optional, defaults to 0).
-	 * @param length The length to fill (optional, defaults to the cache length).
-	 * @returns The cache.
+	 * @param length The length to fill (optional, defaults to the buffer length).
+	 * @returns The current buffer instance.
 	 */
 	fill = (value: number, offset = 0, length = this.length): this => {
-		if (value < 0 || value > 0xff) throw new RangeError(`[Cache - fill] Invalid value: '${value}'.`)
+		if (value < 0 || value > 0xff) throw new RangeError(formatError("fill", `Invalid value: '${value}'.`))
+
 		this.check(offset, length)
 		super.fill(value, offset, offset + length)
 		return this
 	}
 
 	/**
-	 * Clears the cache by filling it with zeros.
+	 * Clears the buffer by filling it with zeros.
 	 * @param offset The offset to start clearing at (optional, defaults to 0).
-	 * @param length The length to clear (optional, defaults to the cache length).
-	 * @returns The cache.
+	 * @param length The length to clear (optional, defaults to the buffer length).
+	 * @returns The current buffer instance.
 	 */
 	clear = (offset = 0, length = this.length): this => {
 		this.check(offset, length)

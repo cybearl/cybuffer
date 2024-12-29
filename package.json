@@ -1,6 +1,6 @@
 {
-    "name": "@cybearl/cache",
-    "productName": "Cache",
+    "name": "@cybearl/cybuffer",
+    "productName": "CyBuffer",
     "version": "2024.11.6",
     "description": "An extension of the Uint8Array class that implements cryptography-related operations.",
     "author": "Cybearl <[email protected]> (https://www.cybearl.com/)",
@@ -8,14 +8,14 @@
     "private": false,
     "keywords": [
         "cybearl",
-        "cache",
+        "buffer",
         "Uint8Array",
         "TypedArray",
         "utilities"
     ],
-    "homepage": "https://github.com/cybearl/cache",
-    "repository": "https://github.com/cybearl/cache",
-    "bugs": "https://github.com/cybearl/cache/issues",
+    "homepage": "https://github.com/cybearl/cybuffer",
+    "repository": "https://github.com/cybearl/cybuffer",
+    "bugs": "https://github.com/cybearl/cybuffer/issues",
     "publishConfig": {
         "registry": "https://npm.pkg.github.com/@cybearl"
     },
@@ -67,6 +67,7 @@
         "tsconfig-paths-webpack-plugin": "^4.2.0",
         "tsup": "^8.3.5",
         "typescript": "^5.7.2",
+        "vitest": "^2.1.8",
         "webpack": "^5.97.1"
     }
 }
