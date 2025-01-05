@@ -6,6 +6,7 @@
     "author": "Cybearl <[email protected]> (https://www.cybearl.com/)",
     "license": "MIT",
     "private": false,
+    "type": "module",
     "keywords": [
         "cybearl",
         "buffer",
@@ -38,13 +39,17 @@
         "v-bump": "yarn version --patch",
         "build": "tsup",
         "watch": "tsup --watch",
+        "bench": "tsx ./tests/bench.ts",
+        "sandbox": "tsx ./tests/sandbox.ts",
+        "test:unit": "vitest",
         "lint": "biome lint .",
         "lint:fix": "biome lint . --apply",
         "format": "biome format .",
         "format:fix": "biome format --write .",
-        "typecheck": "tsc --noEmit"
+        "check-types": "tsc --noEmit"
     },
     "dependencies": {
+        "@cybearl/cypack": "^2024.12.1",
         "dedent-js": "^1.0.1",
         "loglevel": "^1.9.2"
     },
@@ -59,15 +64,20 @@
     "devDependencies": {
         "@biomejs/biome": "^1.9.4",
         "@types/copyfiles": "^2.4.4",
+        "@types/minimist": "^1.2.5",
         "@types/node": "^22.10.2",
         "@types/valid-url": "^1.0.7",
         "concurrently": "^9.1.1",
         "copyfiles": "^2.4.1",
         "cross-env": "^7.0.3",
+        "logform": "^2.7.0",
+        "minimist": "^1.2.8",
         "tsconfig-paths-webpack-plugin": "^4.2.0",
         "tsup": "^8.3.5",
+        "tsx": "^4.19.2",
         "typescript": "^5.7.2",
         "vitest": "^2.1.8",
-        "webpack": "^5.97.1"
+        "webpack": "^5.97.1",
+        "winston": "^3.17.0"
     }
 }

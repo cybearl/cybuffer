@@ -25,9 +25,6 @@ export default defineConfig(options => ({
 		copyfiles(["./tsconfig.json", "./dist"], () => null)
 		console.info("> Copied tsconfig.json to dist")
 
-		copyfiles(["./src/biome-config.json", "./dist"], { up: 1 }, () => null)
-		console.info("> Copied biome-config.json to dist")
-
 		console.info("")
 	},
 }))
