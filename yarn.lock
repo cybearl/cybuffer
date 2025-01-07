@@ -61,10 +61,10 @@
   resolved "https://registry.yarnpkg.com/@colors/colors/-/colors-1.6.0.tgz#ec6cd237440700bc23ca23087f513c75508958b0"
   integrity sha512-Ir+AOibqzrIsL6ajt3Rz3LskB7OiMVHqltZmspbW/TJuTVuyOMirVqAkjfY6JISiLHgyNqicAC8AyHHGzNd/dA==
 
-"@cybearl/cypack@^2024.12.1":
-  version "2024.12.1"
-  resolved "https://npm.pkg.github.com/download/@cybearl/cypack/2024.12.1/c1a1f04c4067ec020f5bb2a8b00e3709177d4ae4#c1a1f04c4067ec020f5bb2a8b00e3709177d4ae4"
-  integrity sha512-/9NK+Wp4OPqL56gi3Mz44jfapk+jh7GsWb6XfRwPDSAK4imYPLlA/xfNOKexiftwK37m06e1rhGX0lsvSzVmLQ==
+"@cybearl/cypack@^2025.1.2":
+  version "2025.1.2"
+  resolved "https://npm.pkg.github.com/download/@cybearl/cypack/2025.1.2/5665a42f6375345d6fc8725ad018bab02a6d5110#5665a42f6375345d6fc8725ad018bab02a6d5110"
+  integrity sha512-6OfCGc8Xrekgub8Or1U9cMlBS8tytWMrHObaE1hWLr2fCAg4s/3/cVf+aqWmZk9/Cat8Rb9DKCbS6Nc9BASoZg==
   dependencies:
     dedent-js "^1.0.1"
     logform "^2.7.0"

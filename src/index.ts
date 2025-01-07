@@ -397,6 +397,7 @@ export default class CyBuffer extends Uint8Array {
 	 * - `hex`: Hexadecimal encoding.
 	 *
 	 * **Notes:**
+	 * - Note that the length here is **not** the number of bytes to write, but the number of characters.
 	 * - The `hex` encoding supports `0x` prefix but there's no `endianness` parameter here,
 	 *   it follows the order of the string.
 	 * @param value The string to write to the buffer.
@@ -412,7 +413,7 @@ export default class CyBuffer extends Uint8Array {
 		}
 
 		if (encoding === "hex") {
-			this.writeHexString(value, offset, length)
+			this.writeHexString(value, offset, Math.ceil(length / 2))
 			return this
 		}
 

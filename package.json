@@ -15,7 +15,9 @@
         "utilities"
     ],
     "homepage": "https://github.com/cybearl/cybuffer",
-    "repository": "https://github.com/cybearl/cybuffer",
+    "repository": {
+        "url": "https://github.com/cybearl/cybuffer"
+    },
     "bugs": "https://github.com/cybearl/cybuffer/issues",
     "publishConfig": {
         "registry": "https://npm.pkg.github.com/@cybearl"
@@ -39,17 +41,17 @@
         "v-bump": "yarn version --patch",
         "build": "tsup",
         "watch": "tsup --watch",
-        "bench": "tsx ./tests/bench.ts",
+        "benchmark": "tsx ./tests/benchmark.ts",
         "sandbox": "tsx ./tests/sandbox.ts",
         "test:unit": "vitest",
         "lint": "biome lint .",
-        "lint:fix": "biome lint . --apply",
+        "lint:fix": "biome lint . --write",
         "format": "biome format .",
         "format:fix": "biome format --write .",
         "check-types": "tsc --noEmit"
     },
     "dependencies": {
-        "@cybearl/cypack": "^2024.12.1",
+        "@cybearl/cypack": "^2025.1.2",
         "dedent-js": "^1.0.1",
         "loglevel": "^1.9.2"
     },
