@@ -40,14 +40,11 @@
     "scripts": {
         "v-bump": "yarn version --patch",
         "build": "tsup",
-        "watch": "tsup --watch",
-        "benchmark": "tsx ./tests/benchmark.ts",
-        "sandbox": "tsx ./tests/sandbox.ts",
+        "test:sandbox": "tsx ./tests/sandbox.ts",
+        "test:bench": "tsx ./tests/benchmark.ts",
         "test:unit": "vitest",
-        "lint": "biome lint .",
-        "lint:fix": "biome lint . --write",
-        "format": "biome format .",
-        "format:fix": "biome format --write .",
+        "lint": "biome lint . && biome format .",
+        "lint:fix": "biome lint . --write && biome format --write .",
         "check-types": "tsc --noEmit"
     },
     "dependencies": {
@@ -72,12 +69,14 @@
         "concurrently": "^9.1.1",
         "copyfiles": "^2.4.1",
         "cross-env": "^7.0.3",
+        "happy-dom": "^16.5.3",
         "logform": "^2.7.0",
         "minimist": "^1.2.8",
         "tsconfig-paths-webpack-plugin": "^4.2.0",
         "tsup": "^8.3.5",
         "tsx": "^4.19.2",
         "typescript": "^5.7.2",
+        "vite-tsconfig-paths": "^5.1.4",
         "vitest": "^2.1.8",
         "webpack": "^5.97.1",
         "winston": "^3.17.0"

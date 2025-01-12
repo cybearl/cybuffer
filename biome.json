@@ -17,7 +17,8 @@
             "correctness": {
                 "useExhaustiveDependencies": "off",
                 "noUnusedVariables": "warn",
-                "noUnusedImports": "warn"
+                "noUnusedImports": "warn",
+                "noConstructorReturn": "off"
             },
             "style": {
                 "noNegationElse": "warn",
@@ -28,7 +29,8 @@
                 "noArrayIndexKey": "off",
                 "noConsoleLog": "warn",
                 "noEmptyBlockStatements": "error",
-                "useAwait": "error"
+                "useAwait": "error",
+                "noFocusedTests": "info"
             }
         }
     },

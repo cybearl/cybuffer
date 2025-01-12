@@ -18,7 +18,7 @@ const helpMessage = dedent`
 
     Options:
         -b, --benchmark <name>          Run a specific benchmark.
-        -i, --benchmarkInputSize   The input size for the cyBuffer benchmark.
+        -i, --benchmarkInputSize   The input size for the CyBuffer benchmark.
         -d, --benchmarkDuration         The duration of the benchmark in milliseconds.
         -l, --list                      List all available benchmarks.
         -h, --help                      Display this help message.
@@ -61,7 +61,7 @@ function main(args: string[]) {
 		process.exit(0)
 	}
 
-	logger.info("Starting the cyBuffer benchmarking..")
+	logger.info("Starting the CyBuffer benchmarking..")
 
 	const argBenchmarkName = argv.benchmark || argv.b
 	let argBenchmarkInputSize = argv.BenchmarkInputSize || argv.c

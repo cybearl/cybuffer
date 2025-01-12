@@ -35,6 +35,8 @@ export default function executeStaticBenchmark(benchmarkInputSize: number, bench
 	bench.benchmark(() => CyBuffer.fromUint8Array(oneUint8Array), "fromUint8Array")
 	bench.benchmark(() => CyBuffer.fromUint16Array(oneUint16Array), "fromUint16Array")
 	bench.benchmark(() => CyBuffer.fromUint32Array(oneUint32Array), "fromUint32Array")
+	bench.benchmark(() => CyBuffer.fromBigInt(1n), "fromBigInt")
+	bench.benchmark(() => CyBuffer.fromRange(0, 1), "fromRange")
 	bench.print("static")
 
 	bench.benchmark(() => CyBuffer.alloc(benchmarkInputSize), `alloc(${benchmarkInputSize})`)
@@ -44,5 +46,7 @@ export default function executeStaticBenchmark(benchmarkInputSize: number, bench
 	bench.benchmark(() => CyBuffer.fromUint8Array(randomUint8Array), `fromUint8Array(${randomUint8Array.length})`)
 	bench.benchmark(() => CyBuffer.fromUint16Array(randomUint16Array), `fromUint16Array(${randomUint16Array.length})`)
 	bench.benchmark(() => CyBuffer.fromUint32Array(randomUint32Array), `fromUint32Array(${randomUint32Array.length})`)
+	bench.benchmark(() => CyBuffer.fromBigInt(BigInt(benchmarkInputSize)), "fromBigInt")
+	bench.benchmark(() => CyBuffer.fromRange(0, benchmarkInputSize), `fromRange(0, ${benchmarkInputSize})`)
 	bench.print("static (multiple)")
 }

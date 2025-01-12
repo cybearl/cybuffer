@@ -1,5 +1,4 @@
 import { randomFillSync } from "node:crypto"
-import os from "node:os"
 
 /**
  * A type for a single bit (`0` or `1`).
@@ -12,48 +11,50 @@ export type Bit = 0 | 1
 const formatError = (name: string, message: string): string => `[CyBuffer - ${name}] ${message}`
 
 /**
- * `CyBuffer` is a helper class that extends the Uint8Array class with additional methods
+ * `CyBuffer` is a helper class that indirectly extends the Uint8Array class with additional methods
  * similar to the Buffer class in Node.js, while also providing multiple utility methods
  * linked to advanced cryptography and binary data manipulation.
- *
- * **Notes:**
- * - As TypedArrays are based on the platform's endianness, the `littleEndian` parameter
- * is potentially inverted before being used, allowing support for both Little Endian and Big Endian systems.
  */
-export default class CyBuffer extends Uint8Array {
+export default class CyBuffer {
 	/**
-	 * The initial offset of the buffer compared to the buffer's `byteOffset`.
+	 * The platform's endianness which all related methods will use by default,
+	 * in order to normalize the endianness parameter.
 	 */
-	private _offset = 0
+	readonly platformEndianness: "LE" | "BE"
 
 	/**
-	 * The length of the buffer (in bytes).
+	 * The ArrayBuffer instance referenced by the buffer.
 	 */
-	private _length: number
+	readonly arrayBuffer: ArrayBuffer
 
 	/**
-	 * The platform's endianness which all related methods will use by default.
+	 * The Uint8Array instance that acts as a bridge between the buffer and the array buffer.
 	 */
-	readonly platformEndianness = os.endianness()
+	readonly array: Uint8Array
 
 	/**
-	 * The number of bytes per element in the buffer (always 1).
+	 * The offset in bytes of the buffer.
 	 */
-	readonly BYTES_PER_ELEMENT = 1
+	readonly offset: number
 
 	/**
-	 * Creates a new `CyBuffer` instance based on a length or an input (supported by the Uint8Array constructor).
+	 * The length in bytes of the buffer.
+	 */
+	readonly length: number
+
+	/**
+	 * Creates a new `CyBuffer` instance based on a length or an input.
 	 * @param length The length of the buffer to create.
 	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
 	 * @param options The options to use (optional).
-	 * - `buffer`: The buffer to feed to the Uint8Array constructor.
-	 * - `offset`: The offset to start reading from (optional, defaults to 0).
-	 * - `length`: The length to read (optional, defaults to the input length).
+	 * - `arrayBuffer`: The array buffer to use.
+	 * - `offset`: The offset in bytes to start reading from (optional, defaults to 0).
+	 * - `length`: The length in bytes to read (optional, defaults to the input length).
 	 */
 	constructor(
 		length: number,
 		options?: {
-			buffer: ArrayBuffer
+			arrayBuffer: ArrayBuffer
 			offset?: number
 			length?: number
 		},
@@ -62,45 +63,74 @@ export default class CyBuffer extends Uint8Array {
 		if (!Number.isInteger(length))
 			throw new TypeError(formatError("constructor", `Invalid buffer length: '${length}'.`))
 
-		if (options) super(options.buffer, options?.offset, options?.length)
-		else super(length)
+		this.platformEndianness = this.getPlatformEndianness()
 
-		this._offset = options?.offset ?? 0
-		this._length = options?.length ?? length
+		if (options) {
+			this.arrayBuffer = options.arrayBuffer
+			this.offset = options.offset ?? 0
+			this.length = options.length ?? length
+			this.array = new Uint8Array(this.arrayBuffer, this.offset, this.length)
+		}
+
+		this.arrayBuffer = new ArrayBuffer(length)
+		this.offset = 0
+		this.length = length
+		this.array = new Uint8Array(this.arrayBuffer)
+
+		// Applying proxy
+		return this._proxy
 	}
 
 	/**
-	 * =========
-	 *  GETTERS
-	 * =========
+	 * ============
+	 *  SIGNATURES
+	 * ============
 	 */
 
 	/**
-	 * The ArrayBuffer instance referenced by the buffer.
+	 * Signature for the `[]` operator.
 	 */
-	get arrayBuffer(): ArrayBuffer {
-		return super.buffer
+	[index: number]: number
+
+	/**
+	 * ==================
+	 *  INTERNAL METHODS
+	 * ==================
+	 */
+
+	/**
+	 * Get the platform endianness.
+	 * @returns The platform endianness.
+	 */
+	getPlatformEndianness = (): "LE" | "BE" => {
+		const tmpUint8Array = new Uint8Array(4)
+		const tmpUint16View = new Uint32Array(tmpUint8Array.buffer)
+
+		tmpUint16View[0] = 0xff00
+		return tmpUint8Array[0] === 0xff ? "BE" : "LE"
 	}
 
 	/**
-	 * The initial offset of the buffer compared to the buffer's `byteOffset`.
+	 * Normalizes the endianness parameter.
+	 *
+	 * By default, the extended Uint8Array is written for Little Endian, to keep it consistent,
+	 * if the platform is big endian the endianness parameter is reversed.
+	 *
+	 * - Little endian platform:
+	 *   - `LE` read from left to right.
+	 *   - `BE` read from right to left.
+	 * - Big endian platform:
+	 *   - `LE` read from right to left.
+	 *   - `BE` read from left to right.
 	 */
-	get offset(): number {
-		return this._offset
-	}
+	normalizeEndianness = (endianness: "LE" | "BE"): "LE" | "BE" => {
+		if (this.platformEndianness === "BE") {
+			if (endianness === "LE") return "BE"
+			return "LE"
+		}
 
-	/**
-	 * The length of the buffer.
-	 */
-	get length(): number {
-		return this._length
+		return endianness
 	}
-
-	/**
-	 * =================
-	 *  GENERAL METHODS
-	 * =================
-	 */
 
 	/**
 	 * Checks the offset and length for validity.
@@ -108,10 +138,11 @@ export default class CyBuffer extends Uint8Array {
 	 * **Note:** This method is used internally by the read/write methods.
 	 * @param offset The offset to check.
 	 * @param length The length to check.
+	 * @param value The value to check (optional).
 	 * @throws If the offset or length are invalid.
 	 * @returns The current buffer instance.
 	 */
-	check = (offset: number, length: number): this => {
+	check = (offset: number, length: number, value?: unknown): this => {
 		if (Number.isNaN(offset) || Number.isNaN(length)) {
 			throw new TypeError(formatError("check", `Invalid offset: '${offset}' or length: '${length}'.`))
 		}
@@ -140,57 +171,18 @@ export default class CyBuffer extends Uint8Array {
 		if (offset % 1 !== 0) throw new RangeError(formatError("check", `Invalid offset alignment: '${offset}'.`))
 		if (length % 1 !== 0) throw new RangeError(formatError("check", `Invalid length alignment: '${length}'.`))
 
+		if (value !== undefined) {
+			if (typeof value !== "number" || Number.isNaN(value)) {
+				throw new RangeError(formatError("check", `Invalid value: '${value}'.`))
+			}
+
+			if (value < 0 || value > 0xff) {
+				throw new RangeError(formatError("check", `Value is out of bounds: '${value}'.`))
+			}
+		}
+
 		return this
 	}
-
-	/**
-	 * Normalizes the endianness parameter.
-	 *
-	 * By default, the extended Uint8Array is written for Little Endian, to keep it consistent,
-	 * if the platform is big endian the endianness parameter is reversed.
-	 *
-	 * - Little endian platform:
-	 *   - `LE` read from left to right.
-	 *   - `BE` read from right to left.
-	 * - Big endian platform:
-	 *   - `LE` read from right to left.
-	 *   - `BE` read from left to right.
-	 */
-	normalizeEndianness = (endianness: "LE" | "BE"): "LE" | "BE" => {
-		if (this.platformEndianness === "BE") {
-			if (endianness === "LE") return "BE"
-			return "LE"
-		}
-
-		return endianness
-	};
-
-	/**
-	 * ===========
-	 *  ITERATORS
-	 * ===========
-	 */
-
-	/**
-	 * The symbol iterator of the buffer, allowing to iterate over the buffer
-	 * using `for..of` loops and returning bytes.
-	 * @returns A new `ArrayIterator`.
-	 */
-	*[Symbol.iterator](): ArrayIterator<number> {
-		for (let i = 0; i < this.length; i++) {
-			yield this[i]
-		}
-	}
-
-	/**
-	 * This method returns a new `ArrayIterator` for iterating over index-value pairs,
-	 * returning an array with the index and the byte.
-	 *
-	 * **Note:** This method directly uses the `Uint8Array.entries` method in order to keep
-	 * all of its internal additional functionalities.
-	 * @returns A new `ArrayIterator`.
-	 */
-	entries = (): ArrayIterator<[number, number]> => super.entries()
 
 	/**
 	 * ================
@@ -321,10 +313,64 @@ export default class CyBuffer extends Uint8Array {
 	}
 
 	/**
+	 * ===========
+	 *  ACCESSORS
+	 * ===========
+	 */
+
+	/**
+	 * The proxy that allows to access/assign values via the [] operator.
+	 * Note that both the getter and setter are safe and never throw.
+	 * @returns The proxy returned by the constructor.
+	 */
+	private get _proxy(): CyBuffer {
+		return new Proxy(this, {
+			get: (target, prop) => {
+				if (typeof prop === "string" && !Number.isNaN(Number(prop))) {
+					this.check(Number(prop), 1)
+
+					return target.array[Number(prop)] ?? undefined
+				}
+
+				// Arbitrary properties are allowed
+				return target[prop as keyof this]
+			},
+			set: (target, prop, value) => {
+				if (typeof prop === "string" && !Number.isNaN(Number(prop))) {
+					this.check(Number(prop), 1, value)
+
+					target.array[Number(prop)] = value
+					return true
+				}
+
+				// Arbitrary properties are allowed
+				target[prop as keyof this] = value
+				return true
+			},
+		})
+	}
+
+	/**
 	 * ===============
 	 *  WRITE METHODS
 	 * ===============
 	 */
+
+	/**
+	 * Safely set a byte in the buffer without throwing.
+	 * @param offset The offset to write to.
+	 * @param value The value to write.
+	 * @returns Whether the operation was successful.
+	 */
+	set(offset: number, value: number): boolean {
+		try {
+			this.check(offset, 1, value)
+			this.array[offset] = value
+			return true
+		} catch {
+			return false
+		}
+	}
 
 	/**
 	 * Writes an hexadecimal string to the buffer (supports `0x` prefix).
@@ -364,7 +410,7 @@ export default class CyBuffer extends Uint8Array {
 			const lowNibble = value.charCodeAt(i * 2 + 1) | 0x20 // Convert to lowercase for A-F
 
 			// Converts the pair of hexadecimal characters to a byte
-			this[offset + i] =
+			this.array[offset + i] =
 				((highNibble - (highNibble > 57 ? 87 : 48)) << 4) | (lowNibble - (lowNibble > 57 ? 87 : 48))
 		}
 
@@ -385,7 +431,7 @@ export default class CyBuffer extends Uint8Array {
 
 		this.check(offset, length)
 
-		for (let i = 0; i < length; i++) this[offset + i] = value.charCodeAt(i)
+		for (let i = 0; i < length; i++) this.array[offset + i] = value.charCodeAt(i)
 		return this
 	}
 
@@ -435,8 +481,8 @@ export default class CyBuffer extends Uint8Array {
 		if (check) this.check(offset, 1)
 
 		const orientedOffset = msbFirst ? 7 - (bitOffset % 8) : bitOffset % 8
-		if (value === 1) this[offset] |= 1 << orientedOffset
-		else this[offset] &= ~(1 << orientedOffset)
+		if (value === 1) this.array[offset] |= 1 << orientedOffset
+		else this.array[offset] &= ~(1 << orientedOffset)
 
 		return this
 	}
@@ -456,7 +502,7 @@ export default class CyBuffer extends Uint8Array {
 		if (check) this.check(offset, 1)
 
 		value >>>= 0
-		this[offset] = value
+		this.array[offset] = value
 
 		return this
 	}
@@ -481,8 +527,8 @@ export default class CyBuffer extends Uint8Array {
 		if (check) this.check(offset, 2)
 
 		value >>>= 0
-		this[offset] = value & 0xff
-		this[offset + 1] = (value >> 8) & 0xff
+		this.array[offset] = value & 0xff
+		this.array[offset + 1] = (value >> 8) & 0xff
 
 		return this
 	}
@@ -507,8 +553,8 @@ export default class CyBuffer extends Uint8Array {
 		if (check) this.check(offset, 2)
 
 		value >>>= 0
-		this[offset] = (value >> 8) & 0xff
-		this[offset + 1] = value & 0xff
+		this.array[offset] = (value >> 8) & 0xff
+		this.array[offset + 1] = value & 0xff
 
 		return this
 	}
@@ -558,10 +604,10 @@ export default class CyBuffer extends Uint8Array {
 		if (check) this.check(offset, 4)
 
 		value >>>= 0
-		this[offset] = value & 0xff
-		this[offset + 1] = (value >> 8) & 0xff
-		this[offset + 2] = (value >> 16) & 0xff
-		this[offset + 3] = (value >> 24) & 0xff
+		this.array[offset] = value & 0xff
+		this.array[offset + 1] = (value >> 8) & 0xff
+		this.array[offset + 2] = (value >> 16) & 0xff
+		this.array[offset + 3] = (value >> 24) & 0xff
 
 		return this
 	}
@@ -586,10 +632,10 @@ export default class CyBuffer extends Uint8Array {
 		if (check) this.check(offset, 4)
 
 		value >>>= 0
-		this[offset] = (value >> 24) & 0xff
-		this[offset + 1] = (value >> 16) & 0xff
-		this[offset + 2] = (value >> 8) & 0xff
-		this[offset + 3] = value & 0xff
+		this.array[offset] = (value >> 24) & 0xff
+		this.array[offset + 1] = (value >> 16) & 0xff
+		this.array[offset + 2] = (value >> 8) & 0xff
+		this.array[offset + 3] = value & 0xff
 
 		return this
 	}
@@ -656,7 +702,7 @@ export default class CyBuffer extends Uint8Array {
 
 		this.check(offset, length)
 
-		for (let i = arrayOffset; i < length; i++) this[offset - arrayOffset + i] = array[i]
+		for (let i = arrayOffset; i < length; i++) this.array[offset - arrayOffset + i] = array[i]
 
 		return this
 	}
@@ -762,7 +808,7 @@ export default class CyBuffer extends Uint8Array {
 		this.check(offset, length)
 
 		for (let i = 0; i < length; i++) {
-			this[offset + i] = Number(value & BigInt(0xff))
+			this.array[offset + i] = Number(value & BigInt(0xff))
 			value >>= BigInt(8)
 		}
 
@@ -784,7 +830,7 @@ export default class CyBuffer extends Uint8Array {
 		this.check(offset, length)
 
 		for (let i = length - 1; i >= 0; i--) {
-			this[offset + i] = Number(value & BigInt(0xff))
+			this.array[offset + i] = Number(value & BigInt(0xff))
 			value >>= BigInt(8)
 		}
 
@@ -814,13 +860,38 @@ export default class CyBuffer extends Uint8Array {
 
 		this.writeBigIntBE(value, offset, length)
 		return this
-	}
+	};
 
 	/**
 	 * ==============
 	 *  READ METHODS
 	 * ==============
 	 */
+
+	/**
+	 * The symbol iterator of the buffer, allowing to iterate over the buffer
+	 * using `for..of` loops and returning bytes.
+	 * @returns A new `ArrayIterator`.
+	 */
+	*[Symbol.iterator](): ArrayIterator<number> {
+		for (let i = 0; i < this.length; i++) {
+			yield this.array[i]
+		}
+	}
+
+	/**
+	 * Safely get a byte from the buffer without throwing.
+	 * @param offset The offset to read from.
+	 * @returns The byte at the specified offset.
+	 */
+	get(offset: number): number | undefined {
+		try {
+			this.check(offset, 1)
+			return this.array[offset]
+		} catch {
+			return undefined
+		}
+	}
 
 	/**
 	 * Reads a part of the buffer and returns it as an hexadecimal string (always uppercase).
@@ -831,7 +902,7 @@ export default class CyBuffer extends Uint8Array {
 	 */
 	readHexString = (offset = 0, length = this.length - offset, endianness = this.platformEndianness): string => {
 		this.check(offset, length)
-		const hexString = Buffer.from(this.buffer, offset, length).toString("hex").toUpperCase()
+		const hexString = Buffer.from(this.arrayBuffer, offset, length).toString("hex").toUpperCase()
 
 		if (this.normalizeEndianness(endianness) === "LE") return hexString
 
@@ -847,7 +918,7 @@ export default class CyBuffer extends Uint8Array {
 	 */
 	readUtf8String = (offset = 0, length = this.length - offset): string => {
 		this.check(offset, length)
-		return Buffer.from(this.buffer, offset, length).toString("utf8")
+		return Buffer.from(this.arrayBuffer, offset, length).toString("utf8")
 	}
 
 	/**
@@ -885,7 +956,7 @@ export default class CyBuffer extends Uint8Array {
 		if (check) this.check(offset, 1)
 
 		const orderedBitOffset = msbFirst ? 7 - (bitOffset % 8) : bitOffset % 8
-		return (this[offset] & (1 << orderedBitOffset)) !== 0 ? 1 : 0
+		return (this.array[offset] & (1 << orderedBitOffset)) !== 0 ? 1 : 0
 	}
 
 	/**
@@ -898,7 +969,7 @@ export default class CyBuffer extends Uint8Array {
 	 */
 	readUint8 = (offset = 0, check = true): number => {
 		if (check) this.check(offset, 1)
-		return this[offset]
+		return this.array[offset]
 	}
 
 	/**
@@ -915,7 +986,7 @@ export default class CyBuffer extends Uint8Array {
 
 		if (check) this.check(offset, 2)
 
-		return (this[offset] | (this[offset + 1] << 8)) >>> 0
+		return (this.array[offset] | (this.array[offset + 1] << 8)) >>> 0
 	}
 
 	/**
@@ -932,7 +1003,7 @@ export default class CyBuffer extends Uint8Array {
 
 		if (check) this.check(offset, 2)
 
-		return ((this[offset] << 8) | this[offset + 1]) >>> 0
+		return ((this.array[offset] << 8) | this.array[offset + 1]) >>> 0
 	}
 
 	/**
@@ -961,7 +1032,13 @@ export default class CyBuffer extends Uint8Array {
 
 		if (check) this.check(offset, 4)
 
-		return (this[offset] | (this[offset + 1] << 8) | (this[offset + 2] << 16) | (this[offset + 3] << 24)) >>> 0
+		return (
+			(this.array[offset] |
+				(this.array[offset + 1] << 8) |
+				(this.array[offset + 2] << 16) |
+				(this.array[offset + 3] << 24)) >>>
+			0
+		)
 	}
 
 	/**
@@ -977,7 +1054,13 @@ export default class CyBuffer extends Uint8Array {
 
 		if (check) this.check(offset, 4)
 
-		return ((this[offset] << 24) | (this[offset + 1] << 16) | (this[offset + 2] << 8) | this[offset + 3]) >>> 0
+		return (
+			((this.array[offset] << 24) |
+				(this.array[offset + 1] << 16) |
+				(this.array[offset + 2] << 8) |
+				this.array[offset + 3]) >>>
+			0
+		)
 	}
 
 	/**
@@ -1014,7 +1097,7 @@ export default class CyBuffer extends Uint8Array {
 	 * @returns The Uint8Array.
 	 */
 	readUint8Array = (offset = 0, length = this.length - offset): Uint8Array => {
-		return new Uint8Array(this.buffer, offset ?? this.offset, length ?? this.length)
+		return new Uint8Array(this.arrayBuffer, offset ?? this.offset, length ?? this.length)
 	}
 
 	/**
@@ -1024,7 +1107,7 @@ export default class CyBuffer extends Uint8Array {
 	 * @returns The Uint16Array.
 	 */
 	readUint16Array = (offset = 0, length = this.length - offset): Uint16Array => {
-		return new Uint16Array(this.buffer, offset ?? this.offset, length ? length / 2 : this.length / 2)
+		return new Uint16Array(this.arrayBuffer, offset ?? this.offset, length ? length / 2 : this.length / 2)
 	}
 
 	/**
@@ -1034,7 +1117,7 @@ export default class CyBuffer extends Uint8Array {
 	 * @returns The Uint32Array.
 	 */
 	readUint32Array = (offset = 0, length = this.length - offset): Uint32Array => {
-		return new Uint32Array(this.buffer, offset ?? this.offset, length ? length / 4 : this.length / 4)
+		return new Uint32Array(this.arrayBuffer, offset ?? this.offset, length ? length / 4 : this.length / 4)
 	}
 
 	/**
@@ -1049,7 +1132,7 @@ export default class CyBuffer extends Uint8Array {
 		let result = 0n
 
 		for (let i = length - 1; i >= 0; i--) {
-			result = (result << 8n) | BigInt(this[offset + i])
+			result = (result << 8n) | BigInt(this.array[offset + i])
 		}
 
 		return result
@@ -1067,7 +1150,7 @@ export default class CyBuffer extends Uint8Array {
 		let result = 0n
 
 		for (let i = 0; i < length; i++) {
-			result = (result << 8n) | BigInt(this[offset + i])
+			result = (result << 8n) | BigInt(this.array[offset + i])
 		}
 
 		return result
@@ -1098,7 +1181,7 @@ export default class CyBuffer extends Uint8Array {
 	 * @returns The hexadecimal string.
 	 */
 	toHexString = (prefix = false, endianness = this.platformEndianness): string => {
-		let hexString = Buffer.from(this.buffer).toString("hex").toUpperCase()
+		let hexString = Buffer.from(this.arrayBuffer).toString("hex").toUpperCase()
 
 		if (this.normalizeEndianness(endianness) === "BE") {
 			hexString = hexString.match(/.{2}/g)?.reverse().join("") ?? ""
@@ -1112,7 +1195,7 @@ export default class CyBuffer extends Uint8Array {
 	 * Converts the buffer into an UTF-8 string.
 	 * @returns The UTF-8 string.
 	 */
-	toUtf8String = (): string => Buffer.from(this.buffer).toString("utf8")
+	toUtf8String = (): string => Buffer.from(this.arrayBuffer).toString("utf8")
 
 	/**
 	 * Converts the buffer into a string representation (hex string is always uppercase).
@@ -1141,19 +1224,19 @@ export default class CyBuffer extends Uint8Array {
 	 * Converts the buffer into a Uint8Array.
 	 * @returns The Uint8Array.
 	 */
-	toUint8Array = (): Uint8Array => new Uint8Array(this.buffer, this.offset, this.length)
+	toUint8Array = (): Uint8Array => new Uint8Array(this.arrayBuffer, this.offset, this.length)
 
 	/**
 	 * Converts the buffer into a Uint16Array.
 	 * @returns The Uint16Array.
 	 */
-	toUint16Array = (): Uint16Array => new Uint16Array(this.buffer, this.offset, this.length / 2)
+	toUint16Array = (): Uint16Array => new Uint16Array(this.arrayBuffer, this.offset, this.length / 2)
 
 	/**
 	 * Converts the buffer into a Uint32Array.
 	 * @returns The Uint32Array.
 	 */
-	toUint32Array = (): Uint32Array => new Uint32Array(this.buffer, this.offset, this.length / 4)
+	toUint32Array = (): Uint32Array => new Uint32Array(this.arrayBuffer, this.offset, this.length / 4)
 
 	/**
 	 * ===============
@@ -1172,7 +1255,7 @@ export default class CyBuffer extends Uint8Array {
 		}
 
 		for (let i = 0; i < this.length; i++) {
-			if (this[i] !== buffer[i]) {
+			if (this.array[i] !== buffer[i]) {
 				return false
 			}
 		}
@@ -1186,7 +1269,7 @@ export default class CyBuffer extends Uint8Array {
 	 */
 	isEmpty = (): boolean => {
 		for (let i = 0; i < this.length; i++) {
-			if (this[i] !== 0) return false
+			if (this.array[i] !== 0) return false
 		}
 
 		return true
@@ -1210,7 +1293,7 @@ export default class CyBuffer extends Uint8Array {
 		this.check(offset, length)
 
 		for (let i = 0; i < length; i++) {
-			this[offset + i] = Math.floor(Math.random() * 256)
+			this.array[offset + i] = Math.floor(Math.random() * 256)
 		}
 	}
 
@@ -1222,7 +1305,7 @@ export default class CyBuffer extends Uint8Array {
 	 * @param offset The offset to start filling at (optional, defaults to 0).
 	 * @param length The length to fill (optional, defaults to the buffer length - offset).
 	 */
-	safeRandomFill = (offset = 0, length = this.length) => randomFillSync(this, offset, length)
+	safeRandomFill = (offset = 0, length = this.length) => randomFillSync(this.array, offset, length)
 
 	/**
 	 * =================
@@ -1239,7 +1322,7 @@ export default class CyBuffer extends Uint8Array {
 	copy = (offset = 0, length = this.length): CyBuffer => {
 		this.check(offset, length)
 		const buffer = new CyBuffer(length)
-		for (let i = 0; i < length; i++) buffer[i] = this[i + offset]
+		for (let i = 0; i < length; i++) buffer[i] = this.array[i + offset]
 		return buffer
 	}
 
@@ -1253,7 +1336,7 @@ export default class CyBuffer extends Uint8Array {
 	subarray = (offset = 0, length = this.length): CyBuffer => {
 		this.check(offset, length)
 		return new CyBuffer(length, {
-			buffer: this.buffer,
+			arrayBuffer: this.arrayBuffer,
 			offset: offset,
 			length: length,
 		})
@@ -1280,9 +1363,9 @@ export default class CyBuffer extends Uint8Array {
 			const offsetIndex = i + offset
 
 			for (let j = 0; j < wordLength / 2; j++) {
-				const temp = this[offsetIndex + j]
-				this[offsetIndex + j] = this[offsetIndex + wordLength - j - 1]
-				this[offsetIndex + wordLength - j - 1] = temp
+				const temp = this.array[offsetIndex + j]
+				this.array[offsetIndex + j] = this.array[offsetIndex + wordLength - j - 1]
+				this.array[offsetIndex + wordLength - j - 1] = temp
 			}
 		}
 
@@ -1304,9 +1387,9 @@ export default class CyBuffer extends Uint8Array {
 		for (let i = 0; i < dividedLength; i++) {
 			const offsetIndex = i + offset
 			const endOffsetIndex = calculatedLength - i - 1
-			const temp = this[offsetIndex]
-			this[offsetIndex] = this[endOffsetIndex]
-			this[endOffsetIndex] = temp
+			const temp = this.array[offsetIndex]
+			this.array[offsetIndex] = this.array[endOffsetIndex]
+			this.array[endOffsetIndex] = temp
 		}
 
 		return this
@@ -1317,7 +1400,7 @@ export default class CyBuffer extends Uint8Array {
 	 * @returns The current buffer instance.
 	 */
 	reverse = (): this => {
-		super.reverse()
+		this.array.reverse()
 		return this
 	}
 
@@ -1326,9 +1409,11 @@ export default class CyBuffer extends Uint8Array {
 	 * @returns The current buffer instance.
 	 */
 	rotateLeft = (): this => {
-		const first = this[0]
-		for (let i = 0; i < this.length - 1; i++) this[i] = this[i + 1]
-		this[this.length - 1] = first
+		const first = this.array[0]
+
+		for (let i = 0; i < this.length - 1; i++) this.array[i] = this.array[i + 1]
+		this.array[this.length - 1] = first
+
 		return this
 	}
 
@@ -1337,9 +1422,11 @@ export default class CyBuffer extends Uint8Array {
 	 * @returns The current buffer instance.
 	 */
 	rotateRight = (): this => {
-		const last = this[this.length - 1]
-		for (let i = this.length - 1; i > 0; i--) this[i] = this[i - 1]
-		this[0] = last
+		const last = this.array[this.length - 1]
+
+		for (let i = this.length - 1; i > 0; i--) this.array[i] = this.array[i - 1]
+		this.array[0] = last
+
 		return this
 	}
 
@@ -1353,8 +1440,8 @@ export default class CyBuffer extends Uint8Array {
 	shiftLeft = (offset = 0, length = this.length, shift = 1): this => {
 		this.check(offset, length)
 
-		for (let i = 0; i < this.length - 1; i++) this[i] = this[i + shift]
-		for (let i = 0; i < shift; i++) this[this.length - i - 1] = 0
+		for (let i = 0; i < this.length - 1; i++) this.array[i] = this.array[i + shift]
+		for (let i = 0; i < shift; i++) this.array[this.length - i - 1] = 0
 
 		return this
 	}
@@ -1369,8 +1456,8 @@ export default class CyBuffer extends Uint8Array {
 	shiftRight = (offset = 0, length = this.length, shift = 1): this => {
 		this.check(offset, length)
 
-		for (let i = this.length - 1; i > 0; i--) this[i] = this[i - shift]
-		for (let i = 0; i < shift; i++) this[i] = 0
+		for (let i = this.length - 1; i > 0; i--) this.array[i] = this.array[i - shift]
+		for (let i = 0; i < shift; i++) this.array[i] = 0
 
 		return this
 	}
@@ -1386,7 +1473,7 @@ export default class CyBuffer extends Uint8Array {
 		if (value < 0 || value > 0xff) throw new RangeError(formatError("fill", `Invalid value: '${value}'.`))
 
 		this.check(offset, length)
-		super.fill(value, offset, offset + length)
+		this.array.fill(value, offset, offset + length)
 		return this
 	}
 
@@ -1398,7 +1485,7 @@ export default class CyBuffer extends Uint8Array {
 	 */
 	clear = (offset = 0, length = this.length): this => {
 		this.check(offset, length)
-		super.fill(0, offset, length)
+		this.array.fill(0, offset, offset + length)
 		return this
 	}
 }
