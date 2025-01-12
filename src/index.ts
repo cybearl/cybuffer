@@ -351,26 +351,21 @@ export default class CyBuffer {
 	}
 
 	/**
+	 * The symbol iterator of the buffer, allowing to iterate over the buffer
+	 * using `for..of` loops and returning bytes.
+	 * @returns A new `ArrayIterator`.
+	 */
+	*[Symbol.iterator](): ArrayIterator<number> {
+		for (let i = 0; i < this.length; i++) {
+			yield this.array[i]
+		}
+	}
+
+	/**
 	 * ===============
 	 *  WRITE METHODS
 	 * ===============
 	 */
-
-	/**
-	 * Safely set a byte in the buffer without throwing.
-	 * @param offset The offset to write to.
-	 * @param value The value to write.
-	 * @returns Whether the operation was successful.
-	 */
-	set(offset: number, value: number): boolean {
-		try {
-			this.check(offset, 1, value)
-			this.array[offset] = value
-			return true
-		} catch {
-			return false
-		}
-	}
 
 	/**
 	 * Writes an hexadecimal string to the buffer (supports `0x` prefix).
@@ -860,38 +855,13 @@ export default class CyBuffer {
 
 		this.writeBigIntBE(value, offset, length)
 		return this
-	};
+	}
 
 	/**
 	 * ==============
 	 *  READ METHODS
 	 * ==============
 	 */
-
-	/**
-	 * The symbol iterator of the buffer, allowing to iterate over the buffer
-	 * using `for..of` loops and returning bytes.
-	 * @returns A new `ArrayIterator`.
-	 */
-	*[Symbol.iterator](): ArrayIterator<number> {
-		for (let i = 0; i < this.length; i++) {
-			yield this.array[i]
-		}
-	}
-
-	/**
-	 * Safely get a byte from the buffer without throwing.
-	 * @param offset The offset to read from.
-	 * @returns The byte at the specified offset.
-	 */
-	get(offset: number): number | undefined {
-		try {
-			this.check(offset, 1)
-			return this.array[offset]
-		} catch {
-			return undefined
-		}
-	}
 
 	/**
 	 * Reads a part of the buffer and returns it as an hexadecimal string (always uppercase).
@@ -1077,12 +1047,14 @@ export default class CyBuffer {
 
 	/**
 	 * Reads a part of the buffer and return it as a bit array.
-	 * @param offset The offset to start reading from (optional, defaults to 0).
-	 * @param length The length to read (optional, defaults to the buffer length - offset).
+	 *
+	 * **Note:** The offset is in bits, not bytes in contrast to the other methods.
+	 * @param bitOffset The offset to read from **as a number of bits** (optional, defaults to 0).
+	 * @param bitLength The length to read **as a number of bits** (optional, defaults to the buffer length - offset).
 	 * @param msbFirst Whether to read the bits from the most significant bit (optional, defaults to `true`).
 	 * @returns The bit array.
 	 */
-	readBits = (offset = 0, length = this.length - offset, msbFirst = true): Bit[] => {
+	readBits = (offset = 0, length = this.length * 8 - offset * 8, msbFirst = true): Bit[] => {
 		const bits: Bit[] = []
 
 		for (let i = 0; i < length; i++) bits.push(this.readBit(offset + i, msbFirst, false))
