@@ -2,7 +2,7 @@ import os from "node:os"
 import CyBuffer from "@/index"
 import { beforeEach, describe, test } from "vitest"
 
-describe("general", () => {
+describe("internal", () => {
 	describe("getPlatformEndianness", () => {
 		let buffer: CyBuffer
 
@@ -88,6 +88,19 @@ describe("general", () => {
 
 		test("It should not throw if the offset is valid", ({ expect }) => {
 			expect(() => buffer.check(0, 10)).not.toThrow()
+		})
+
+		// Testing the value
+		test("It should throw if the optional checked value is not a number", ({ expect }) => {
+			expect(() => buffer.check(0, 10, "Z")).toThrow()
+		})
+
+		test("It should throw if the optional checked value is smaller than 0", ({ expect }) => {
+			expect(() => buffer.check(0, 10, -1)).toThrow()
+		})
+
+		test("It should throw if the optional checked value is bigger than 255", ({ expect }) => {
+			expect(() => buffer.check(0, 10, 256)).toThrow()
 		})
 	})
 })

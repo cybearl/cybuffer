@@ -469,4 +469,46 @@ describe("write", () => {
 			expect(() => buffer.writeBigInt(BigInt(-1))).toThrow()
 		})
 	})
+
+	describe("writeRange", () => {
+		let buffer: CyBuffer
+
+		beforeEach(() => {
+			buffer = new CyBuffer(32)
+		})
+
+		test("It should write a range between two values to the buffer", ({ expect }) => {
+			buffer.writeRange(0, 4)
+
+			for (let i = 0; i < 4; i++) {
+				expect(buffer.readUint8(i)).toBe(i)
+			}
+		})
+
+		test("It should write a range between two values to the buffer at the specified offset", ({ expect }) => {
+			buffer.writeRange(0x10, 0x14, 4)
+			expect(buffer.readUint8(4)).toBe(0x10)
+			expect(buffer.readUint8(5)).toBe(0x11)
+			expect(buffer.readUint8(6)).toBe(0x12)
+			expect(buffer.readUint8(7)).toBe(0x13)
+		})
+
+		test("It should throw if the start value is greater than the end value", ({ expect }) => {
+			expect(() => buffer.writeRange(0x10, 0x00)).toThrow()
+		})
+
+		test("It should throw if the start value is not a valid uint8", ({ expect }) => {
+			expect(() => buffer.writeRange(-1, 0x00)).toThrow()
+			expect(() => buffer.writeRange(0x100, 0x00)).toThrow()
+		})
+
+		test("It should throw if the end value is not a valid uint8", ({ expect }) => {
+			expect(() => buffer.writeRange(0x00, -1)).toThrow()
+			expect(() => buffer.writeRange(0x00, 0x100)).toThrow()
+		})
+
+		test("It should throw if the byte offset is not aligned to 1 byte", ({ expect }) => {
+			expect(() => buffer.writeRange(0x00, 0x10, 0.5)).toThrow()
+		})
+	})
 })

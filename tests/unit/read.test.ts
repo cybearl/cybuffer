@@ -89,6 +89,7 @@ describe("read", () => {
 		let buffer: CyBuffer
 
 		const uint16sByteValues = [0xff, 0x11, 0x1f, 0x1f]
+
 		const uint16sLE = [0x11ff, 0x1f1f]
 		const uint16sBE = [0xff11, 0x1f1f]
 
@@ -166,6 +167,75 @@ describe("read", () => {
 
 		test("It should read bits from the buffer", ({ expect }) => {
 			expect(buffer.readBits()).toStrictEqual(bits)
+		})
+	})
+
+	describe("readUint8Array", () => {
+		let buffer: CyBuffer
+
+		const uint8Array = new Uint8Array([0xff, 0x11, 0x1f, 0x1f])
+
+		beforeEach(() => {
+			buffer = CyBuffer.fromUint8Array(uint8Array)
+		})
+
+		test("It should read a Uint8Array from the buffer", ({ expect }) => {
+			expect(buffer.readUint8Array()).toStrictEqual(uint8Array)
+		})
+	})
+
+	describe("readUint16Array", () => {
+		let buffer: CyBuffer
+
+		const uint16sByteValues = [0xff, 0x11, 0x1f, 0x1f]
+
+		const uint16sLE = [0x11ff, 0x1f1f]
+
+		beforeEach(() => {
+			buffer = CyBuffer.alloc(4)
+			for (let i = 0; i < buffer.length; i++) {
+				buffer.writeUint8(uint16sByteValues[i], i)
+			}
+		})
+
+		test("It should read a Uint16Array from the buffer", ({ expect }) => {
+			expect(buffer.readUint16Array(0)).toStrictEqual(new Uint16Array(uint16sLE))
+		})
+
+		test("It should read a Uint16Array from the buffer at the specified byte offset", ({ expect }) => {
+			expect(buffer.readUint16Array(2)).toStrictEqual(new Uint16Array(uint16sLE.slice(1)))
+		})
+
+		test("It should throw if the byte offset is not aligned to 2 bytes", ({ expect }) => {
+			expect(() => buffer.readUint16Array(1)).toThrow()
+		})
+	})
+
+	describe("readUint32Array", () => {
+		let buffer: CyBuffer
+
+		const uint32sByteValues = [0xff, 0x22, 0xff, 0x11, 0x1f, 0x1f, 0x1f, 0x1f]
+		const uint32sLE = [0x11ff22ff, 0x1f1f1f1f]
+
+		beforeEach(() => {
+			buffer = CyBuffer.alloc(8)
+			for (let i = 0; i < buffer.length; i++) {
+				buffer.writeUint8(uint32sByteValues[i], i)
+			}
+		})
+
+		test("It should read a Uint32Array from the buffer", ({ expect }) => {
+			expect(buffer.readUint32Array()).toStrictEqual(new Uint32Array(uint32sLE))
+		})
+
+		test("It should read a Uint32Array from the buffer at the specified byte offset (little endian)", ({
+			expect,
+		}) => {
+			expect(buffer.readUint32Array(4)).toStrictEqual(new Uint32Array(uint32sLE.slice(1)))
+		})
+
+		test("It should throw if the byte offset is not aligned to 4 bytes", ({ expect }) => {
+			expect(() => buffer.readUint32Array(2)).toThrow()
 		})
 	})
 

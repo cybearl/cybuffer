@@ -70,12 +70,12 @@ export default class CyBuffer {
 			this.offset = options.offset ?? 0
 			this.length = options.length ?? length
 			this.array = new Uint8Array(this.arrayBuffer, this.offset, this.length)
+		} else {
+			this.arrayBuffer = new ArrayBuffer(length)
+			this.offset = 0
+			this.length = length
+			this.array = new Uint8Array(this.arrayBuffer)
 		}
-
-		this.arrayBuffer = new ArrayBuffer(length)
-		this.offset = 0
-		this.length = length
-		this.array = new Uint8Array(this.arrayBuffer)
 
 		// Applying proxy
 		return this._proxy
@@ -172,11 +172,13 @@ export default class CyBuffer {
 		if (length % 1 !== 0) throw new RangeError(formatError("check", `Invalid length alignment: '${length}'.`))
 
 		if (value !== undefined) {
-			if (typeof value !== "number" || Number.isNaN(value)) {
-				throw new RangeError(formatError("check", `Invalid value: '${value}'.`))
+			const parsedValue = Number(value)
+
+			if (Number.isNaN(parsedValue)) {
+				throw new TypeError(formatError("check", `Invalid value: '${value}'.`))
 			}
 
-			if (value < 0 || value > 0xff) {
+			if (parsedValue < 0 || parsedValue > 255) {
 				throw new RangeError(formatError("check", `Value is out of bounds: '${value}'.`))
 			}
 		}
@@ -193,12 +195,20 @@ export default class CyBuffer {
 	/**
 	 * Creates a new `CyBuffer` instance of the specified length, initially filled with zeros.
 	 * @param length The length of the buffer.
+	 * @param initiallyFilledWith The value to fill the buffer with (optional).
 	 * @returns A new `CyBuffer` instance.
 	 */
-	static alloc = (length: number): CyBuffer => new CyBuffer(length)
+	static alloc = (length: number, initiallyFilledWith?: number): CyBuffer => {
+		const buffer = new CyBuffer(length)
+		if (initiallyFilledWith !== undefined) buffer.fill(initiallyFilledWith)
+		return buffer
+	}
 
 	/**
 	 * Creates a new `CyBuffer` instance from an hexadecimal string (supports `0x` prefix).
+	 *
+	 * **Note:** There is no `endianness` parameter here as there is no concept of word size,
+	 * the order will simply follow the string.
 	 * @param value The hexadecimal string to create the buffer from.
 	 * @returns A new `CyBuffer` instance.
 	 */
@@ -298,17 +308,13 @@ export default class CyBuffer {
 
 	/**
 	 * Creates a new `CyBuffer` instance from a range of numbers between 0 and 255.
-	 * @param start The start of the range.
-	 * @param end The end of the range.
+	 * @param start The start of the range, inclusive.
+	 * @param end The end of the range, exclusive.
 	 * @returns A new `CyBuffer` instance.
 	 */
 	static fromRange = (start: number, end: number): CyBuffer => {
-		if (start < 0 || start > 255) throw new RangeError(formatError("fromRange", `Invalid start value: '${start}'.`))
-		if (end < 0 || end > 255) throw new RangeError(formatError("fromRange", `Invalid end value: '${end}'.`))
-
-		const length = end - start
-		const buffer = new CyBuffer(length)
-		for (let i = 0; i < length; i++) buffer[i] = start + i
+		const buffer = new CyBuffer(end - start)
+		buffer.writeRange(start, end)
 		return buffer
 	}
 
@@ -332,7 +338,6 @@ export default class CyBuffer {
 					return target.array[Number(prop)] ?? undefined
 				}
 
-				// Arbitrary properties are allowed
 				return target[prop as keyof this]
 			},
 			set: (target, prop, value) => {
@@ -343,7 +348,6 @@ export default class CyBuffer {
 					return true
 				}
 
-				// Arbitrary properties are allowed
 				target[prop as keyof this] = value
 				return true
 			},
@@ -361,6 +365,18 @@ export default class CyBuffer {
 		}
 	}
 
+	// entries = (): ArrayIterator<[number, number]> => {
+
+	// }
+
+	keys = (): ArrayIterator<number> => {
+		return this[Symbol.iterator]()
+	}
+
+	values = (): ArrayIterator<number> => {
+		return this[Symbol.iterator]()
+	}
+
 	/**
 	 * ===============
 	 *  WRITE METHODS
@@ -371,7 +387,7 @@ export default class CyBuffer {
 	 * Writes an hexadecimal string to the buffer (supports `0x` prefix).
 	 *
 	 * **Note:** There is no `endianness` parameter here as there is no concept of word size,
-	 * the order will be the same as the string.
+	 * the order will simply follow the string.
 	 * @param value The hexadecimal string to write to the buffer.
 	 * @param offset The offset to start writing at (optional, defaults to 0).
 	 * @param length The length to write (optional, defaults to the value length).
@@ -433,12 +449,7 @@ export default class CyBuffer {
 	/**
 	 * Writes a string to the buffer using a specific encoding.
 	 *
-	 * **Note:** The encoding is limited to the following:
-	 * - `utf8`: UTF-8 encoding.
-	 * - `hex`: Hexadecimal encoding.
-	 *
 	 * **Notes:**
-	 * - Note that the length here is **not** the number of bytes to write, but the number of characters.
 	 * - The `hex` encoding supports `0x` prefix but there's no `endianness` parameter here,
 	 *   it follows the order of the string.
 	 * @param value The string to write to the buffer.
@@ -490,7 +501,7 @@ export default class CyBuffer {
 	 * @returns The current buffer instance.
 	 */
 	writeUint8 = (value: number, offset = 0, check = true): this => {
-		if (value < 0 || value > 0xff) {
+		if (value < 0 || value > 255) {
 			throw new RangeError(formatError("writeUint8", `Value is out of bounds: '${value}'.`))
 		}
 
@@ -858,58 +869,99 @@ export default class CyBuffer {
 	}
 
 	/**
+	 * Writes a range of numbers between 0 and 255 to the buffer.
+	 * @param start The start of the range, inclusive.
+	 * @param end The end of the range, exclusive.
+	 * @param offset The offset to start writing at (optional, defaults to 0).
+	 * @returns The current buffer instance.
+	 */
+	writeRange = (start: number, end: number, offset = 0): this => {
+		if (start < 0 || start > 255) {
+			throw new RangeError(formatError("writeRange", `Invalid start value: '${start}'.`))
+		}
+
+		if (end < 0 || end > 255) {
+			throw new RangeError(formatError("writeRange", `Invalid end value: '${end}'.`))
+		}
+
+		const length = end - start
+		this.check(offset, length)
+
+		for (let i = 0; i < length; i++) {
+			this.array[offset + i] = start + i
+		}
+
+		return this
+	}
+
+	/**
 	 * ==============
 	 *  READ METHODS
 	 * ==============
+	 *
+	 * Notes:
+	 * - All read methods have the capability to disable the overall check.
+	 * - All of the "endianness sensitive" methods are wrapped within a single
+	 *   method with an optional endianness parameter.
 	 */
 
 	/**
-	 * Reads a part of the buffer and returns it as an hexadecimal string (always uppercase).
+	 * **[LITTLE ENDIAN]** Reads a part of the buffer and returns it as an hexadecimal string (always uppercase).
 	 * @param offset The offset to start reading from (optional, defaults to 0).
 	 * @param length The length to read (optional, defaults to the buffer length - offset).
-	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
+	 * @param check Whether to enable the overall check (optional, defaults to `true`).
 	 * @returns The hexadecimal string.
 	 */
-	readHexString = (offset = 0, length = this.length - offset, endianness = this.platformEndianness): string => {
-		this.check(offset, length)
-		const hexString = Buffer.from(this.arrayBuffer, offset, length).toString("hex").toUpperCase()
+	readHexStringLE = (offset = 0, length = this.length - offset, check = true): string => {
+		if (check) this.check(offset, length)
+		return Buffer.from(this.arrayBuffer, offset, length).toString("hex").toUpperCase()
+	}
 
-		if (this.normalizeEndianness(endianness) === "LE") return hexString
+	/**
+	 * **[BIG ENDIAN]** Reads a part of the buffer and returns it as an hexadecimal string (always uppercase).
+	 * @param offset The offset to start reading from (optional, defaults to 0).
+	 * @param length The length to read (optional, defaults to the buffer length - offset).
+	 * @param check Whether to enable the overall check (optional, defaults to `true`).
+	 * @returns The hexadecimal string.
+	 */
+	readHexStringBE = (offset = 0, length = this.length - offset, check = true): string => {
+		if (check) this.check(offset, length)
+		const hexString = Buffer.from(this.arrayBuffer, offset, length).toString("hex").toUpperCase()
 
 		// biome-ignore lint/style/noNonNullAssertion: Will always match
 		return hexString.match(/.{2}/g)!.reverse().join("")
 	}
 
 	/**
-	 * Reads a part of the buffer and returns it as an UTF-8 string.
+	 * Reads a part of the buffer and returns it as an hexadecimal string (always uppercase).
 	 * @param offset The offset to start reading from (optional, defaults to 0).
 	 * @param length The length to read (optional, defaults to the buffer length - offset).
-	 * @returns The UTF-8 string.
+	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).'
+	 * @param check Whether to enable the overall check (optional, defaults to `true`).
+	 * @returns The hexadecimal string.
 	 */
-	readUtf8String = (offset = 0, length = this.length - offset): string => {
-		this.check(offset, length)
-		return Buffer.from(this.arrayBuffer, offset, length).toString("utf8")
+	readHexString = (
+		offset = 0,
+		length = this.length - offset,
+		endianness = this.platformEndianness,
+		check = true,
+	): string => {
+		if (check) this.check(offset, length)
+
+		if (this.normalizeEndianness(endianness) === "LE") return this.readHexStringLE(offset, length, false)
+		return this.readHexStringBE(offset, length, false)
 	}
 
 	/**
-	 * Reads a part of the buffer and returns it as a string using a specific encoding.
-	 *
-	 * **Note:** The encoding is limited to the following:
-	 * - `utf8`: UTF-8 encoding.
-	 * - `hex`: Hexadecimal encoding.
-	 *
-	 * **Note:** The `hex` encoding supports `0x` prefix but there's no `endianness` parameter here,
-	 * it follows the order of the string.
+	 * Reads a part of the buffer and returns it as an UTF-8 string.
 	 * @param offset The offset to start reading from (optional, defaults to 0).
 	 * @param length The length to read (optional, defaults to the buffer length - offset).
-	 * @param encoding The encoding to use (optional, defaults to "utf8").
-	 * @returns The string.
+	 * @param check Whether to enable the overall check (optional, defaults to `true`).
+	 * @returns The UTF-8 string.
 	 */
-	readString = (offset = 0, length = this.length - offset, encoding: "hex" | "utf8" = "utf8"): string => {
-		if (encoding === "utf8") return this.readUtf8String(offset, length)
-		if (encoding === "hex") return this.readHexString(offset, length)
-
-		throw new TypeError(formatError("readString", `Invalid encoding: '${encoding}'.`))
+	readUtf8String = (offset = 0, length = this.length - offset, check = true): string => {
+		if (check) this.check(offset, length)
+		return Buffer.from(this.arrayBuffer, offset, length).toString("utf8")
 	}
 
 	/**
@@ -1052,12 +1104,13 @@ export default class CyBuffer {
 	 * @param bitOffset The offset to read from **as a number of bits** (optional, defaults to 0).
 	 * @param bitLength The length to read **as a number of bits** (optional, defaults to the buffer length - offset).
 	 * @param msbFirst Whether to read the bits from the most significant bit (optional, defaults to `true`).
+	 * @param check Whether to enable the overall check (optional, defaults to `true`).
 	 * @returns The bit array.
 	 */
-	readBits = (offset = 0, length = this.length * 8 - offset * 8, msbFirst = true): Bit[] => {
+	readBits = (offset = 0, length = this.length * 8 - offset * 8, msbFirst = true, check = true): Bit[] => {
 		const bits: Bit[] = []
 
-		for (let i = 0; i < length; i++) bits.push(this.readBit(offset + i, msbFirst, false))
+		for (let i = 0; i < length; i++) bits.push(this.readBit(offset + i, msbFirst, check))
 
 		return bits
 	}
@@ -1066,9 +1119,11 @@ export default class CyBuffer {
 	 * Reads a part of the buffer and return it as a Uint8Array.
 	 * @param offset The offset to start reading from (optional, defaults to 0).
 	 * @param length The length to read (optional, defaults to the buffer length - offset).
+	 * @param check Whether to enable the overall check (optional, defaults to `true`).
 	 * @returns The Uint8Array.
 	 */
-	readUint8Array = (offset = 0, length = this.length - offset): Uint8Array => {
+	readUint8Array = (offset = 0, length = this.length - offset, check = true): Uint8Array => {
+		if (check) this.check(offset, length)
 		return new Uint8Array(this.arrayBuffer, offset ?? this.offset, length ?? this.length)
 	}
 
@@ -1078,7 +1133,8 @@ export default class CyBuffer {
 	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @returns The Uint16Array.
 	 */
-	readUint16Array = (offset = 0, length = this.length - offset): Uint16Array => {
+	readUint16Array = (offset = 0, length = this.length - offset, check = true): Uint16Array => {
+		if (check) this.check(offset, length)
 		return new Uint16Array(this.arrayBuffer, offset ?? this.offset, length ? length / 2 : this.length / 2)
 	}
 
@@ -1088,7 +1144,8 @@ export default class CyBuffer {
 	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @returns The Uint32Array.
 	 */
-	readUint32Array = (offset = 0, length = this.length - offset): Uint32Array => {
+	readUint32Array = (offset = 0, length = this.length - offset, check = true): Uint32Array => {
+		if (check) this.check(offset, length)
 		return new Uint32Array(this.arrayBuffer, offset ?? this.offset, length ? length / 4 : this.length / 4)
 	}
 
@@ -1098,8 +1155,8 @@ export default class CyBuffer {
 	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @returns The big integer.
 	 */
-	readBigIntLE = (offset = 0, length = this.length - offset): bigint => {
-		this.check(offset, length)
+	readBigIntLE = (offset = 0, length = this.length - offset, check = true): bigint => {
+		if (check) this.check(offset, length)
 
 		let result = 0n
 
@@ -1116,8 +1173,8 @@ export default class CyBuffer {
 	 * @param length The length to read (optional, defaults to the buffer length - offset).
 	 * @returns The big integer.
 	 */
-	readBigIntBE = (offset = 0, length = this.length - offset): bigint => {
-		this.check(offset, length)
+	readBigIntBE = (offset = 0, length = this.length - offset, check = true): bigint => {
+		if (check) this.check(offset, length)
 
 		let result = 0n
 
@@ -1135,9 +1192,14 @@ export default class CyBuffer {
 	 * @param endianness Whether to read the value in Little Endian (optional, defaults to `false`).
 	 * @returns The big integer.
 	 */
-	readBigInt = (offset = 0, length = this.length - offset, endianness = this.platformEndianness): bigint => {
-		if (this.normalizeEndianness(endianness) === "LE") return this.readBigIntLE(offset, length)
-		return this.readBigIntBE(offset, length)
+	readBigInt = (
+		offset = 0,
+		length = this.length - offset,
+		endianness = this.platformEndianness,
+		check = true,
+	): bigint => {
+		if (this.normalizeEndianness(endianness) === "LE") return this.readBigIntLE(offset, length, check)
+		return this.readBigIntBE(offset, length, check)
 	}
 
 	/**
@@ -1248,6 +1310,18 @@ export default class CyBuffer {
 	}
 
 	/**
+	 * Check if the buffer is full.
+	 * @returns Whether the buffer is full.
+	 */
+	isFull = (): boolean => {
+		for (let i = 0; i < this.length; i++) {
+			if (this.array[i] !== 255) return false
+		}
+
+		return true
+	}
+
+	/**
 	 * ====================
 	 *  RANDOMNESS METHODS
 	 * ====================
@@ -1307,6 +1381,7 @@ export default class CyBuffer {
 	 */
 	subarray = (offset = 0, length = this.length): CyBuffer => {
 		this.check(offset, length)
+
 		return new CyBuffer(length, {
 			arrayBuffer: this.arrayBuffer,
 			offset: offset,
@@ -1442,7 +1517,7 @@ export default class CyBuffer {
 	 * @returns The current buffer instance.
 	 */
 	fill = (value: number, offset = 0, length = this.length): this => {
-		if (value < 0 || value > 0xff) throw new RangeError(formatError("fill", `Invalid value: '${value}'.`))
+		if (value < 0 || value > 255) throw new RangeError(formatError("fill", `Invalid value: '${value}'.`))
 
 		this.check(offset, length)
 		this.array.fill(value, offset, offset + length)

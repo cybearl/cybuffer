@@ -13,7 +13,7 @@ describe("check", () => {
 			buffer3 = CyBuffer.fromHexString("FF11FF")
 		})
 
-		test.only("It should return true if the buffers are equal", ({ expect }) => {
+		test("It should return true if the buffers are equal", ({ expect }) => {
 			expect(buffer1.equals(buffer2)).toBe(true)
 		})
 
@@ -41,6 +41,23 @@ describe("check", () => {
 		test("It should return false if the buffer is not empty", ({ expect }) => {
 			buffer.writeUint8(0xff)
 			expect(buffer.isEmpty()).toBe(false)
+		})
+	})
+
+	describe("isFull", () => {
+		let buffer: CyBuffer
+
+		beforeEach(() => {
+			buffer = CyBuffer.alloc(4)
+		})
+
+		test("It should return false if the buffer is empty", ({ expect }) => {
+			expect(buffer.isFull()).toBe(false)
+		})
+
+		test("It should return true if the buffer is full", ({ expect }) => {
+			buffer.fill(0xff)
+			expect(buffer.isFull()).toBe(true)
 		})
 	})
 })
