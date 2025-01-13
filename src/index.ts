@@ -359,22 +359,50 @@ export default class CyBuffer {
 	 * using `for..of` loops and returning bytes.
 	 * @returns A new `ArrayIterator`.
 	 */
-	*[Symbol.iterator](): ArrayIterator<number> {
+	*[Symbol.iterator]() {
+		let i = 0
+
+		const iterator = {
+			next: () => {
+				if (i < this.length) {
+					return { value: this.array[i++], done: false }
+				}
+
+				return { value: undefined, done: true }
+			},
+		}
+
+		yield iterator
+	}
+
+	/**
+	 * Iterates over the buffer and yields the index and value of each byte as an array.
+	 * @returns The generator yielding the index and value of each byte.
+	 */
+	*entries(): Generator<[number, number]> {
 		for (let i = 0; i < this.length; i++) {
-			yield this.array[i]
+			yield [i, this.array[i]]
 		}
 	}
 
-	// entries = (): ArrayIterator<[number, number]> => {
-
-	// }
-
-	keys = (): ArrayIterator<number> => {
-		return this[Symbol.iterator]()
+	/**
+	 * Iterates over the buffer and yields the index of each byte.
+	 * @returns The generator yielding the index of each byte.
+	 */
+	*keys(): Generator<number> {
+		for (let i = 0; i < this.length; i++) {
+			yield i
+		}
 	}
 
-	values = (): ArrayIterator<number> => {
-		return this[Symbol.iterator]()
+	/**
+	 * Iterates over the buffer and yields the value of each byte.
+	 * @returns The generator yielding the value of each byte.
+	 */
+	*values(): Generator<number> {
+		for (let i = 0; i < this.length; i++) {
+			yield this.array[i]
+		}
 	}
 
 	/**
