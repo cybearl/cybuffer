@@ -1,8 +1,8 @@
 import { logger } from "@cybearl/cypack"
 import executeCheckBenchmark from "@tests/benchmarks/check.bench"
-import executeConvertBenchmark from "@tests/benchmarks/convert.bench"
-import executeGeneralBenchmark from "@tests/benchmarks/general.bench"
-import executeRandomBenchmark from "@tests/benchmarks/random.bench"
+import executeConversionBenchmark from "@tests/benchmarks/conversion.bench"
+import executeInternalBenchmark from "@tests/benchmarks/internal.bench"
+import executeRandomnessBenchmark from "@tests/benchmarks/randomness.bench"
 import executeReadBenchmark from "@tests/benchmarks/read.bench"
 import executeStaticBenchmark from "@tests/benchmarks/static.bench"
 import executeUtilityBenchmark from "@tests/benchmarks/utility.bench"
@@ -33,13 +33,13 @@ type BenchmarkFunction = (benchmarkInputSize: number, benchmarkDuration: number)
  * Benchmark routing.
  */
 const benchmarks: { [key: string]: BenchmarkFunction } = {
-	general: executeGeneralBenchmark,
+	internal: executeInternalBenchmark,
 	static: executeStaticBenchmark,
 	write: executeWriteBenchmark,
 	read: executeReadBenchmark,
-	convert: executeConvertBenchmark,
+	conversion: executeConversionBenchmark,
 	check: executeCheckBenchmark,
-	random: executeRandomBenchmark,
+	randomness: executeRandomnessBenchmark,
 	utility: executeUtilityBenchmark,
 }
 

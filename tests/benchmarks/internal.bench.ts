@@ -1,7 +1,7 @@
 import CyBuffer from "@/index"
 import { Bench } from "@cybearl/cypack"
 
-export default function executeGeneralBenchmark(benchmarkInputSize: number, benchmarkDuration: number) {
+export default function executeInternalBenchmark(benchmarkInputSize: number, benchmarkDuration: number) {
 	// Test buffer instances
 	const buffer = CyBuffer.alloc(benchmarkInputSize)
 

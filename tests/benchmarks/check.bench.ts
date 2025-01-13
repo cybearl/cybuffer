@@ -7,6 +7,8 @@ export default function executeCheckBenchmark(benchmarkInputSize: number, benchm
 
 	// Test buffer instances
 	const buffer = CyBuffer.alloc(benchmarkInputSize)
+	buffer.fill(0x01)
+
 	const emptyCyBuffer = CyBuffer.alloc(1)
 	const firstEqualCyBuffer = CyBuffer.alloc(benchmarkInputSize)
 	const secondEqualCyBuffer = CyBuffer.alloc(benchmarkInputSize)
@@ -18,7 +20,9 @@ export default function executeCheckBenchmark(benchmarkInputSize: number, benchm
 
 	bench.benchmark(() => firstEqualCyBuffer.equals(secondEqualCyBuffer), "equals(true)")
 	bench.benchmark(() => firstUnequalCyBuffer.equals(secondUnequalCyBuffer), "equals(false)")
-	bench.benchmark(() => buffer.isEmpty(), `isEmpty(${benchmarkInputSize})`)
 	bench.benchmark(() => emptyCyBuffer.isEmpty(), "isEmpty(1)")
+	bench.benchmark(() => buffer.isEmpty(), `isEmpty(${benchmarkInputSize})`)
+	bench.benchmark(() => emptyCyBuffer.isFull(), "isFull(1)")
+	bench.benchmark(() => buffer.isFull(), `isFull(${benchmarkInputSize})`)
 	bench.print("check")
 }

@@ -20,8 +20,6 @@ export default function executeReadBenchmark(benchmarkInputSize: number, benchma
 
 	bench.benchmark(() => buffer.readHexString(0, 1), "readHexString(1)")
 	bench.benchmark(() => buffer.readUtf8String(0, 1), "readUtf8String(1)")
-	bench.benchmark(() => buffer.readString(0, 1, "hex"), "readString(1:hex)")
-	bench.benchmark(() => buffer.readString(0, 1, "utf8"), "readString(1:utf8)")
 	bench.benchmark(() => buffer.readBits(0, 1), "readBits(1)")
 	bench.benchmark(() => buffer.readUint8Array(0, 1), "readUint8Array(1)")
 	bench.benchmark(() => buffer.readUint16Array(0, 1), "readUint16Array(1)")
@@ -33,8 +31,6 @@ export default function executeReadBenchmark(benchmarkInputSize: number, benchma
 
 	bench.benchmark(() => buffer.readHexString(0, benchmarkInputSize), `readHexString(${benchmarkInputSize})`)
 	bench.benchmark(() => buffer.readUtf8String(0, benchmarkInputSize), `readUtf8String(${benchmarkInputSize})`)
-	bench.benchmark(() => buffer.readString(0, benchmarkInputSize, "hex"), `readString(${benchmarkInputSize}:hex)`)
-	bench.benchmark(() => buffer.readString(0, benchmarkInputSize, "utf8"), `readString(${benchmarkInputSize}:utf8)`)
 	bench.benchmark(() => buffer.readBits(0, benchmarkInputSize), `readBits(${benchmarkInputSize})`)
 	bench.benchmark(() => buffer.readUint8Array(0, benchmarkInputSize), `readUint8Array(${benchmarkInputSize})`)
 	bench.benchmark(() => buffer.readUint16Array(0, benchmarkInputSize), `readUint16Array(${benchmarkInputSize})`)

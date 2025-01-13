@@ -1,7 +1,7 @@
 import CyBuffer from "@/index"
 import { Bench } from "@cybearl/cypack"
 
-export default function executeRandomBenchmark(benchmarkInputSize: number, benchmarkDuration: number) {
+export default function executeRandomnessBenchmark(benchmarkInputSize: number, benchmarkDuration: number) {
 	// Test buffer instances
 	const buffer = CyBuffer.alloc(benchmarkInputSize)
 	const bufferX8 = CyBuffer.alloc(benchmarkInputSize * 8)

@@ -1,7 +1,7 @@
 import CyBuffer from "@/index"
 import { beforeEach, describe, test } from "vitest"
 
-describe("convert", () => {
+describe("conversion", () => {
 	let buffer: CyBuffer
 
 	describe("toHexString", () => {
@@ -105,6 +105,18 @@ describe("convert", () => {
 
 		test("It should convert the cache to a Uint32Array", ({ expect }) => {
 			expect(buffer.toUint32Array()).toEqual(uint32Array)
+		})
+	})
+
+	describe("toBigInt", () => {
+		const hexString = "FF00FF00"
+
+		beforeEach(() => {
+			buffer = CyBuffer.fromHexString(hexString)
+		})
+
+		test("It should convert the buffer to a BigInt", ({ expect }) => {
+			expect(buffer.toBigInt()).toBe(BigInt(0xff00ff00))
 		})
 	})
 })
