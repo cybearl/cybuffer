@@ -2,7 +2,6 @@ import { randomFillSync } from "node:crypto"
 import type { Bit } from "@/types/general"
 import type { WriteUint1632ArrayOptions } from "@/types/options"
 import { fe } from "@/utils/formats"
-import { convertOptionsToParams } from "@/utils/options"
 
 /**
  * `CyBuffer` is a helper class that indirectly extends the Uint8Array class with additional methods
@@ -711,16 +710,14 @@ export default class CyBuffer {
 	 * @returns The current buffer instance.
 	 */
 	writeUint16Array = (array: Uint16Array, options?: Partial<WriteUint1632ArrayOptions>): this => {
-		const params = convertOptionsToParams<WriteUint1632ArrayOptions>(
-			{
-				offset: 0,
-				length: array.byteLength,
-				arrayOffset: 0,
-				endianness: this.platformEndianness,
-				verifyAlignment: true,
-			},
-			options,
-		)
+		const params: WriteUint1632ArrayOptions = {
+			offset: 0,
+			length: array.byteLength,
+			arrayOffset: 0,
+			endianness: this.platformEndianness,
+			verifyAlignment: true,
+			...options,
+		}
 
 		if (!array || !(array instanceof Uint16Array)) {
 			throw new TypeError(fe("writeUint16Array", `Invalid Uint16Array: '${array}'.`))
@@ -759,16 +756,14 @@ export default class CyBuffer {
 	 * @returns The current buffer instance.
 	 */
 	writeUint32Array = (array: Uint32Array, options?: Partial<WriteUint1632ArrayOptions>): this => {
-		const params = convertOptionsToParams<WriteUint1632ArrayOptions>(
-			{
-				offset: 0,
-				length: array.byteLength,
-				arrayOffset: 0,
-				endianness: this.platformEndianness,
-				verifyAlignment: true,
-			},
-			options,
-		)
+		const params: WriteUint1632ArrayOptions = {
+			offset: 0,
+			length: array.byteLength,
+			arrayOffset: 0,
+			endianness: this.platformEndianness,
+			verifyAlignment: true,
+			...options,
+		}
 
 		if (!array || !(array instanceof Uint32Array)) {
 			throw new TypeError(fe("writeUint32Array", `Invalid Uint32Array: '${array}'.`))
