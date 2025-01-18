@@ -1,7 +1,7 @@
 {
     "name": "@cybearl/cybuffer",
     "productName": "CyBuffer",
-    "version": "2024.11.6",
+    "version": "2025.1.1",
     "description": "An extension of the Uint8Array class that implements cryptography-related operations.",
     "author": "Cybearl <[email protected]> (https://www.cybearl.com/)",
     "license": "MIT",
