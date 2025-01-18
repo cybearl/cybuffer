@@ -1,6 +1,5 @@
 import { randomFillSync } from "node:crypto"
-import type { Bit } from "@/types/general"
-import type { WriteUint1632ArrayOptions } from "@/types/options"
+import type { Bit, Endianness, StringEncoding } from "@/types/general"
 import { fe } from "@/utils/formats"
 
 /**
@@ -13,7 +12,7 @@ export default class CyBuffer {
 	 * The platform's endianness which all related methods will use by default,
 	 * in order to normalize the endianness parameter.
 	 */
-	readonly platformEndianness: "LE" | "BE"
+	readonly platformEndianness: Endianness
 
 	/**
 	 * The ArrayBuffer instance referenced by the buffer.
@@ -94,7 +93,7 @@ export default class CyBuffer {
 	 * Get the platform endianness.
 	 * @returns The platform endianness.
 	 */
-	getPlatformEndianness = (): "LE" | "BE" => {
+	getPlatformEndianness = (): Endianness => {
 		const tmpUint8Array = new Uint8Array(4)
 		const tmpUint16View = new Uint32Array(tmpUint8Array.buffer)
 
@@ -115,7 +114,7 @@ export default class CyBuffer {
 	 *   - `LE` read from right to left.
 	 *   - `BE` read from left to right.
 	 */
-	normalizeEndianness = (endianness: "LE" | "BE"): "LE" | "BE" => {
+	normalizeEndianness = (endianness: Endianness): Endianness => {
 		if (this.platformEndianness === "BE") {
 			if (endianness === "LE") return "BE"
 			return "LE"
@@ -130,11 +129,10 @@ export default class CyBuffer {
 	 * **Note:** This method is used internally by the read/write methods.
 	 * @param offset The offset to check.
 	 * @param length The length to check.
-	 * @param value The value to check (optional).
 	 * @throws If the offset or length are invalid.
 	 * @returns The current buffer instance.
 	 */
-	check = (offset: number, length: number, value?: unknown): this => {
+	check = (offset: number, length: number): this => {
 		if (Number.isNaN(offset) || Number.isNaN(length)) {
 			throw new TypeError(fe("check", `Invalid offset: '${offset}' or length: '${length}'.`))
 		}
@@ -159,18 +157,6 @@ export default class CyBuffer {
 		if (offset % 1 !== 0) throw new RangeError(fe("check", `Invalid offset alignment: '${offset}'.`))
 		if (length % 1 !== 0) throw new RangeError(fe("check", `Invalid length alignment: '${length}'.`))
 
-		if (value !== undefined) {
-			const parsedValue = Number(value)
-
-			if (Number.isNaN(parsedValue)) {
-				throw new TypeError(fe("check", `Invalid value: '${value}'.`))
-			}
-
-			if (parsedValue < 0 || parsedValue > 255) {
-				throw new RangeError(fe("check", `Value is out of bounds: '${value}'.`))
-			}
-		}
-
 		return this
 	}
 
@@ -183,12 +169,12 @@ export default class CyBuffer {
 	/**
 	 * Creates a new `CyBuffer` instance of the specified length, initially filled with zeros.
 	 * @param length The length of the buffer.
-	 * @param valueToFillBufferWith The value to initially fill the buffer with (optional).
+	 * @param fillWith The value to initially fill the buffer with (optional).
 	 * @returns A new `CyBuffer` instance.
 	 */
-	static alloc = (length: number, valueToFillBufferWith?: number): CyBuffer => {
+	static alloc = (length: number, fillWith?: number): CyBuffer => {
 		const buffer = new CyBuffer(length)
-		if (valueToFillBufferWith !== undefined) buffer.fill(valueToFillBufferWith)
+		if (fillWith !== undefined) buffer.fill(fillWith)
 		return buffer
 	}
 
@@ -227,7 +213,7 @@ export default class CyBuffer {
 	 * @param encoding The encoding to use (optional, defaults to "utf8").
 	 * @returns A new `CyBuffer` instance.
 	 */
-	static fromString = (value: string, encoding: "hex" | "utf8" = "utf8"): CyBuffer => {
+	static fromString = (value: string, encoding: StringEncoding = "utf8"): CyBuffer => {
 		const buffer = new CyBuffer(value.length)
 		buffer.writeString(value, encoding, 0, value.length)
 		return buffer
@@ -263,7 +249,7 @@ export default class CyBuffer {
 	 */
 	static fromUint16Array = (array: Uint16Array): CyBuffer => {
 		const buffer = new CyBuffer(array.byteLength)
-		buffer.writeUint16Array(array, { offset: 0, length: array.byteLength })
+		buffer.writeUint16Array(array, 0, array.byteLength)
 		return buffer
 	}
 
@@ -274,21 +260,20 @@ export default class CyBuffer {
 	 */
 	static fromUint32Array = (array: Uint32Array): CyBuffer => {
 		const buffer = new CyBuffer(array.byteLength)
-		buffer.writeUint32Array(array, { offset: 0, length: array.byteLength })
+		buffer.writeUint32Array(array, 0, array.byteLength)
 		return buffer
 	}
 
 	/**
 	 * Creates a new `CyBuffer` instance from a big integer.
 	 * @param value The big integer to create the buffer from.
-	 * @param length The length of the buffer (optional, defaults to the value byte length).
 	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
 	 * @returns A new `CyBuffer` instance.
 	 */
-	static fromBigInt = (value: bigint, length?: number, endianness?: "LE" | "BE"): CyBuffer => {
+	static fromBigInt = (value: bigint, endianness?: Endianness): CyBuffer => {
 		if (value < 0n) throw new RangeError(fe("fromBigInt", `Invalid big integer: '${value}'.`))
 
-		const byteLength = length ?? Math.ceil(value.toString(16).length / 2)
+		const byteLength = Math.ceil(value.toString(16).length / 2)
 		const buffer = new CyBuffer(byteLength)
 		buffer.writeBigInt(value, 0, byteLength, endianness)
 		return buffer
@@ -330,7 +315,17 @@ export default class CyBuffer {
 			},
 			set: (target, prop, value) => {
 				if (typeof prop === "string" && !Number.isNaN(Number(prop))) {
-					this.check(Number(prop), 1, value)
+					const parsedValue = Number(value)
+
+					if (Number.isNaN(parsedValue)) {
+						throw new TypeError(fe("proxy", `Invalid value: '${value}'.`))
+					}
+
+					if (parsedValue < 0 || parsedValue > 255) {
+						throw new RangeError(fe("proxy", `Value is out of bounds: '${value}'.`))
+					}
+
+					this.check(Number(prop), 1)
 
 					target.array[Number(prop)] = value
 					return true
@@ -443,7 +438,7 @@ export default class CyBuffer {
 	 * @param length The length to write (optional, defaults to the value length).
 	 * @returns The current buffer instance.
 	 */
-	writeString = (value: string, encoding: "hex" | "utf8" = "utf8", offset = 0, length = value.length): this => {
+	writeString = (value: string, encoding: StringEncoding = "utf8", offset = 0, length = value.length): this => {
 		if (encoding === "utf8") {
 			this.writeUtf8String(value, offset, length)
 			return this
@@ -701,44 +696,41 @@ export default class CyBuffer {
 	/**
 	 * Writes a Uint16Array to the buffer.
 	 * @param array The Uint16Array to write to the buffer.
-	 * @param options The options to use:
-	 * - `offset`: The offset to start writing at (optional, defaults to 0).
-	 * - `length`: The length to write (optional, defaults to the array length).
-	 * - `arrayOffset`: The offset to start reading from in the array (optional, defaults to 0).
-	 * - `endianness`: The endianness to use (optional, defaults to the platform's endianness).
-	 * - `verifyAlignment`: Whether to verify that the offset is aligned to 4 bytes (optional, defaults to `true`).
+	 * @param offset The offset to start writing at (optional, defaults to 0).
+	 * @param length The length to write (optional, defaults to the array length).
+	 * @param arrayOffset The offset to start reading from in the array (optional, defaults to 0).
+	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
+	 * @param verifyAlignment Whether to verify that the offset is aligned to 2 bytes (optional, defaults to `true`).
 	 * @returns The current buffer instance.
 	 */
-	writeUint16Array = (array: Uint16Array, options?: Partial<WriteUint1632ArrayOptions>): this => {
-		const params: WriteUint1632ArrayOptions = {
-			offset: 0,
-			length: array.byteLength,
-			arrayOffset: 0,
-			endianness: this.platformEndianness,
-			verifyAlignment: true,
-			...options,
-		}
-
+	writeUint16Array = (
+		array: Uint16Array,
+		offset = 0,
+		length = array.byteLength,
+		arrayOffset = 0,
+		endianness = this.platformEndianness,
+		verifyAlignment = true,
+	): this => {
 		if (!array || !(array instanceof Uint16Array)) {
 			throw new TypeError(fe("writeUint16Array", `Invalid Uint16Array: '${array}'.`))
 		}
 
-		if (params.verifyAlignment && params.offset % 2 !== 0) {
-			throw new RangeError(fe("writeUint16Array", `Invalid offset alignment: '${params.offset}' (%2).`))
+		if (verifyAlignment && offset % 2 !== 0) {
+			throw new RangeError(fe("writeUint16Array", `Invalid offset alignment: '${offset}' (%2).`))
 		}
 
-		this.check(params.offset, length)
+		this.check(offset, length)
 
-		if (this.normalizeEndianness(params.endianness) === "LE") {
-			for (let i = params.arrayOffset; i < length; i += 2) {
-				this.writeUint16LE(array[i / 2], params.offset - params.arrayOffset + i, params.verifyAlignment, false)
+		if (this.normalizeEndianness(endianness) === "LE") {
+			for (let i = arrayOffset; i < length; i += 2) {
+				this.writeUint16LE(array[i / 2], offset - arrayOffset + i, verifyAlignment, false)
 			}
 
 			return this
 		}
 
-		for (let i = params.arrayOffset; i < length; i += 2) {
-			this.writeUint16BE(array[i / 2], params.offset - params.arrayOffset + i, params.verifyAlignment, false)
+		for (let i = arrayOffset; i < length; i += 2) {
+			this.writeUint16BE(array[i / 2], offset - arrayOffset + i, verifyAlignment, false)
 		}
 
 		return this
@@ -746,45 +738,42 @@ export default class CyBuffer {
 
 	/**
 	 * Writes a Uint32Array to the buffer.
-	 * @param array The Uint32Array to write to the buffer.
-	 * @param options The options to use:
-	 * - `offset`: The offset to start writing at (optional, defaults to 0).
-	 * - `length`: The length to write (optional, defaults to the array length).
-	 * - `arrayOffset`: The offset to start reading from in the array (optional, defaults to 0).
-	 * - `endianness`: The endianness to use (optional, defaults to the platform's endianness).
-	 * - `verifyAlignment`: Whether to verify that the offset is aligned to 4 bytes (optional, defaults to `true`).
+	 * @param array The Uint16Array to write to the buffer.
+	 * @param offset The offset to start writing at (optional, defaults to 0).
+	 * @param length The length to write (optional, defaults to the array length).
+	 * @param arrayOffset The offset to start reading from in the array (optional, defaults to 0).
+	 * @param endianness The endianness to use (optional, defaults to the platform's endianness).
+	 * @param verifyAlignment Whether to verify that the offset is aligned to 2 bytes (optional, defaults to `true`).
 	 * @returns The current buffer instance.
 	 */
-	writeUint32Array = (array: Uint32Array, options?: Partial<WriteUint1632ArrayOptions>): this => {
-		const params: WriteUint1632ArrayOptions = {
-			offset: 0,
-			length: array.byteLength,
-			arrayOffset: 0,
-			endianness: this.platformEndianness,
-			verifyAlignment: true,
-			...options,
-		}
-
+	writeUint32Array = (
+		array: Uint32Array,
+		offset = 0,
+		length = array.byteLength,
+		arrayOffset = 0,
+		endianness = this.platformEndianness,
+		verifyAlignment = true,
+	): this => {
 		if (!array || !(array instanceof Uint32Array)) {
 			throw new TypeError(fe("writeUint32Array", `Invalid Uint32Array: '${array}'.`))
 		}
 
-		if (params.verifyAlignment && params.offset % 4 !== 0) {
-			throw new RangeError(fe("writeUint32Array", `Invalid offset alignment: '${params.offset}' (%4).`))
+		if (verifyAlignment && offset % 4 !== 0) {
+			throw new RangeError(fe("writeUint32Array", `Invalid offset alignment: '${offset}' (%4).`))
 		}
 
-		this.check(params.offset, length)
+		this.check(offset, length)
 
-		if (this.normalizeEndianness(params.endianness) === "LE") {
-			for (let i = params.arrayOffset; i < length; i += 4) {
-				this.writeUint32LE(array[i / 4], params.offset - params.arrayOffset + i, params.verifyAlignment, false)
+		if (this.normalizeEndianness(endianness) === "LE") {
+			for (let i = arrayOffset; i < length; i += 4) {
+				this.writeUint32LE(array[i / 4], offset - arrayOffset + i, verifyAlignment, false)
 			}
 
 			return this
 		}
 
-		for (let i = params.arrayOffset; i < length; i += 4) {
-			this.writeUint32BE(array[i / 4], params.offset - params.arrayOffset + i, params.verifyAlignment, false)
+		for (let i = arrayOffset; i < length; i += 4) {
+			this.writeUint32BE(array[i / 4], offset - arrayOffset + i, verifyAlignment, false)
 		}
 
 		return this
