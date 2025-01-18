@@ -32,6 +32,9 @@ jobs:
           scope: "@cybearl"
           always-auth: true
 
+      - name: Authenticate with private NPM package to access other private packages
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
