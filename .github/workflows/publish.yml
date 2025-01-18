@@ -45,7 +45,3 @@ jobs:
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish GitHub release from tag (if 'push' is a tag)
-        uses: ghalactic/github-release-from-tag@v5
-        if: github.ref_type == 'tag'
