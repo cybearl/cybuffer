@@ -32,11 +32,10 @@ jobs:
           scope: "@cybearl"
           always-auth: true
 
-      - name: Authenticate with private NPM package to access other private packages
-        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
       - name: Install dependencies
         run: yarn install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build package
         run: yarn build
@@ -45,7 +44,7 @@ jobs:
         working-directory: ./dist
         run: npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish GitHub release from tag (if 'push' is a tag)
         uses: ghalactic/github-release-from-tag@v5
